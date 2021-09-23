@@ -1,0 +1,6 @@
+*.local.*
+*.exe
+
+node_modules
+
+config/config.json
