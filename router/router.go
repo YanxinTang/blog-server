@@ -34,6 +34,7 @@ func SetupRouter() *gin.Engine {
 		public.GET("articles/:articleID/comments", controller.GetArticleComments)
 		public.POST("articles/:articleID/comments", controller.CreateComment)
 		public.GET("categories", controller.GetCategories)
+		public.GET("categories/:categoryID/articles", controller.GetCategoryArticles)
 
 		public.GET("setting", controller.GetSetting)
 	}

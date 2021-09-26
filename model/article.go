@@ -76,6 +76,41 @@ func GetDrafts(pagination Pagination) ([]Article, error) {
 	return getArticles(StatusDraft, pagination)
 }
 
+// getCategoryArticles 获取某个分类下的所有内容
+func getCategoryArticles(categoryID uint64, status int8, pagination Pagination) ([]Article, error) {
+	var articles []Article
+	start := (pagination.Page - 1) * pagination.PerPage
+	err := DB.Select(
+		&articles,
+		`SELECT id, category_id, title, content, created_at, updated_at
+		FROM article as a
+		WHERE category_id = ? AND status = ?
+		ORDER BY id DESC LIMIT ?, ?
+		`,
+		categoryID,
+		status,
+		start,
+		pagination.PerPage,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	category, err := GetCategory(categoryID)
+	if err != nil {
+		return nil, err
+	}
+	for i := range articles {
+		articles[i].Category = category
+	}
+	return articles, nil
+}
+
+// 获取某个分类下的所有文章
+func GetCategoryPublishedArticles(categoryID uint64, pagination Pagination) ([]Article, error) {
+	return getCategoryArticles(categoryID, StatusPublished, pagination)
+}
+
 func getArticle(articleID uint64) (Article, error) {
 	row := DB.QueryRow(
 		`SELECT a.id, a.category_id, a.title, a.content, a.created_at, a.updated_at, c.id, c.name, c.created_at, c.updated_at 
@@ -184,6 +219,17 @@ func UpdateArticle(article Article) (sql.Result, error) {
 func ArticlesCount() uint64 {
 	var count uint64
 	DB.QueryRow("SELECT COUNT(*) FROM article WHERE status = ?", StatusPublished).Scan(&count)
+	return count
+}
+
+// CategoryArticlesCount 返回某个分类下文章的总数
+func CategoryArticlesCount(categoryID uint64) uint64 {
+	var count uint64
+	DB.QueryRow(
+		"SELECT COUNT(*) FROM article WHERE status = ? AND category_id = ?",
+		StatusPublished,
+		categoryID,
+	).Scan(&count)
 	return count
 }
 

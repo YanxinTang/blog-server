@@ -17,6 +17,7 @@ type apiGetArticlesQueryModel struct {
 	Page uint64 `form:"page,default=1"`
 }
 
+// GetArticles 获取所有的文章
 func GetArticles(c *gin.Context) {
 	var apiGetArticlesQuery apiGetArticlesQueryModel
 	if err := c.ShouldBindQuery(&apiGetArticlesQuery); err != nil {
@@ -34,6 +35,39 @@ func GetArticles(c *gin.Context) {
 	}
 
 	articles, err := model.GetPublishedArticles(pagination)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+
+	for i := range articles {
+		articles[i].Content = articles[i].Summary()
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"articles":   articles,
+		"pagination": pagination,
+	})
+}
+
+// GetCategoryArticles 获取某个分类下的所有文章
+func GetCategoryArticles(c *gin.Context) {
+	categoryID, err := strconv.ParseUint(c.Param("categoryID"), 10, 64)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+	pagination := model.NewPagination()
+	if err := c.BindQuery(&pagination); err != nil {
+		return
+	}
+	pagination.Total = model.CategoryArticlesCount(categoryID)
+	if !pagination.IsValid() {
+		c.Error(e.ERROR_RESOURCE_NOT_FOUND)
+		return
+	}
+
+	articles, err := model.GetCategoryPublishedArticles(categoryID, pagination)
 	if err != nil {
 		c.Error(err)
 		return
