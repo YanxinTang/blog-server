@@ -1,15 +1,16 @@
 package model
 
 import (
-	"database/sql"
 	"log"
 
 	"github.com/YanxinTang/blog/server/utils"
+	"github.com/georgysavva/scany/pgxscan"
+	"github.com/jackc/pgconn"
 )
 
 const (
-	StatusPublished = iota
-	StatusDraft     = iota
+	StatusPublished = true
+	StatusDraft     = false
 )
 
 type Article struct {
@@ -17,7 +18,7 @@ type Article struct {
 	CategoryID uint64 `json:"categoryID" db:"category_id" binding:"required"`
 	Title      string `json:"title" db:"title" binding:"required"`
 	Content    string `json:"content" db:"content" binding:"required"`
-	Status     int8   `json:"status" db:"status"`
+	Status     bool   `json:"status" db:"status"`
 
 	Category Category `json:"category" binding:"-"`
 }
@@ -26,19 +27,20 @@ func (a *Article) Summary() string {
 	return utils.Summary(a.Content)
 }
 
-func getArticles(status int8, pagination Pagination) ([]Article, error) {
+func getArticles(status bool, pagination Pagination) ([]Article, error) {
 	start := (pagination.Page - 1) * pagination.PerPage
-	rows, err := DB.Query(
+	rows, err := db.Query(
+		ctx,
 		`SELECT a.id, a.category_id, a.title, a.content, a.created_at, a.updated_at, c.id, c.name, c.created_at, c.updated_at 
 		FROM article as a
 		LEFT JOIN category as c
 		ON a.category_id = c.id
-		WHERE a.status = ?
-		ORDER BY a.id DESC LIMIT ?, ?
+		WHERE a.status = $1
+		ORDER BY a.id DESC LIMIT $2 OFFSET $3
 		`,
 		status,
-		start,
 		pagination.PerPage,
+		start,
 	)
 	if err != nil {
 		return nil, err
@@ -77,22 +79,23 @@ func GetDrafts(pagination Pagination) ([]Article, error) {
 }
 
 // getCategoryArticles 获取某个分类下的所有内容
-func getCategoryArticles(categoryID uint64, status int8, pagination Pagination) ([]Article, error) {
+func getCategoryArticles(categoryID uint64, status bool, pagination Pagination) ([]Article, error) {
 	var articles []Article
 	start := (pagination.Page - 1) * pagination.PerPage
-	err := DB.Select(
+	if err := pgxscan.Select(
+		ctx,
+		db,
 		&articles,
 		`SELECT id, category_id, title, content, created_at, updated_at
-		FROM article as a
-		WHERE category_id = ? AND status = ?
-		ORDER BY id DESC LIMIT ?, ?
+		FROM article
+		WHERE category_id = $1 AND status = $2
+		ORDER BY id DESC LIMIT $3 OFFSET $4
 		`,
 		categoryID,
 		status,
-		start,
 		pagination.PerPage,
-	)
-	if err != nil {
+		start,
+	); err != nil {
 		return nil, err
 	}
 
@@ -111,48 +114,20 @@ func GetCategoryPublishedArticles(categoryID uint64, pagination Pagination) ([]A
 	return getCategoryArticles(categoryID, StatusPublished, pagination)
 }
 
-func getArticle(articleID uint64) (Article, error) {
-	row := DB.QueryRow(
+func getStatusArticle(articleID uint64, status bool) (Article, error) {
+	row := db.QueryRow(
+		ctx,
 		`SELECT a.id, a.category_id, a.title, a.content, a.created_at, a.updated_at, c.id, c.name, c.created_at, c.updated_at 
 		FROM article as a
 		LEFT JOIN category as c 
 		ON a.category_id = c.id 
-		WHERE a.id = ?`,
-		articleID,
-	)
-
-	var article Article
-	if err := row.Scan(
-		&article.BaseModel.ID,
-		&article.CategoryID,
-		&article.Title,
-		&article.Content,
-		&article.BaseModel.CreatedAt,
-		&article.BaseModel.UpdatedAt,
-		&article.Category.ID,
-		&article.Category.Name,
-		&article.Category.CreatedAt,
-		&article.Category.UpdatedAt,
-	); err != nil {
-		return Article{}, err
-	}
-
-	return article, nil
-}
-
-func getStatusArticle(articleID uint64, status int8) (Article, error) {
-	row := DB.QueryRow(
-		`SELECT a.id, a.category_id, a.title, a.content, a.created_at, a.updated_at, c.id, c.name, c.created_at, c.updated_at 
-		FROM article as a
-		LEFT JOIN category as c 
-		ON a.category_id = c.id 
-		WHERE a.id = ? AND a.status = ?`,
+		WHERE a.id = $1 AND a.status = $2`,
 		articleID,
 		status,
 	)
 
 	var article Article
-	if err := row.Scan(
+	err := row.Scan(
 		&article.BaseModel.ID,
 		&article.CategoryID,
 		&article.Title,
@@ -163,11 +138,9 @@ func getStatusArticle(articleID uint64, status int8) (Article, error) {
 		&article.Category.Name,
 		&article.Category.CreatedAt,
 		&article.Category.UpdatedAt,
-	); err != nil {
-		return Article{}, err
-	}
+	)
 
-	return article, nil
+	return article, err
 }
 
 func GetPublishedArticle(articleID uint64) (Article, error) {
@@ -179,69 +152,62 @@ func GetDraft(draftID uint64) (Article, error) {
 }
 
 func CreateArticle(userID uint64, article Article) (Article, error) {
-	res, err := DB.Exec(
-		"INSERT article SET title=?, category_id = ?, content=?, status = ?",
+	err := pgxscan.Get(
+		ctx,
+		db,
+		&article,
+		"INSERT INTO article (title, category_id, content, status) VALUES ($1, $2, $3, $4) RETURNING *",
 		&article.Title,
 		&article.CategoryID,
 		&article.Content,
 		&article.Status,
 	)
-	if err != nil {
-		return article, err
-	}
-	lastInsertID, err := res.LastInsertId()
-	if err != nil {
-		return article, err
-	}
-	lastInsertArticle, err := getArticle(uint64(lastInsertID))
-	if err != nil {
-		return article, err
-	}
-	return lastInsertArticle, nil
+	return article, err
 }
 
 func DeleteArticle(articleID uint64) error {
-	if _, err := DB.Exec("DELETE FROM article WHERE id = ?", articleID); err != nil {
-		return err
-	}
-	return nil
+	_, err := db.Exec(ctx, "DELETE FROM article WHERE id = $1", articleID)
+	return err
 }
 
-func UpdateArticle(article Article) (sql.Result, error) {
-	stmt, err := DB.Prepare("UPDATE article SET category_id = ?, title = ?, content = ? WHERE id = ?")
-	if err != nil {
-		return nil, err
-	}
-	defer stmt.Close()
-	return stmt.Exec(article.CategoryID, article.Title, article.Content, article.ID)
+func UpdateArticle(article Article) (pgconn.CommandTag, error) {
+	return db.Exec(
+		ctx,
+		"UPDATE article SET category_id = $1, title = $2, content = $3 WHERE id = $4",
+		article.CategoryID,
+		article.Title,
+		article.Content,
+		article.ID,
+	)
 }
 
-func ArticlesCount() uint64 {
+func ArticlesCount() (uint64, error) {
 	var count uint64
-	DB.QueryRow("SELECT COUNT(*) FROM article WHERE status = ?", StatusPublished).Scan(&count)
-	return count
+	err := pgxscan.Get(ctx, db, &count, "SELECT COUNT(*) FROM article WHERE status = $1", StatusPublished)
+	return count, err
 }
 
 // CategoryArticlesCount 返回某个分类下文章的总数
-func CategoryArticlesCount(categoryID uint64) uint64 {
+func CategoryArticlesCount(categoryID uint64) (uint64, error) {
 	var count uint64
-	DB.QueryRow(
-		"SELECT COUNT(*) FROM article WHERE status = ? AND category_id = ?",
+	err := pgxscan.Get(
+		ctx,
+		db,
+		&count,
+		"SELECT COUNT(*) FROM article WHERE status = $1 AND category_id = $2",
 		StatusPublished,
 		categoryID,
-	).Scan(&count)
-	return count
+	)
+	return count, err
 }
 
 func PublishDraft(draftID uint64) error {
-	if _, err := DB.Exec("UPDATE `article` SET `status` = ? WHERE `id` = ?", StatusPublished, draftID); err != nil {
-		return err
-	}
-	return nil
+	_, err := db.Exec(ctx, "UPDATE article SET status = $1 WHERE id = $2", StatusPublished, draftID)
+	return err
 }
 
-func DraftsCount() uint64 {
+func DraftsCount() (uint64, error) {
 	var count uint64
-	DB.QueryRow("SELECT COUNT(*) FROM article WHERE status = ?", StatusDraft).Scan(&count)
-	return count
+	err := pgxscan.Get(ctx, db, &count, "SELECT COUNT(*) FROM article WHERE status = $1", StatusDraft)
+	return count, err
 }

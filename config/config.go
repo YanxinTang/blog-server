@@ -6,9 +6,6 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"time"
-
-	"github.com/dgrijalva/jwt-go"
 )
 
 type ConfigStruct struct {
@@ -19,27 +16,14 @@ type ConfigStruct struct {
 		Username string `json:"username"`
 		Password string `json:"password"`
 	} `json:"auth"`
-	Mysql struct {
+	Database struct {
 		Host     string `json:"host"`
 		Port     string `json:"port"`
 		User     string `json:"user"`
 		Password string `json:"password"`
-		Database string `json:"database"`
-	} `json:"mysql"`
+		DBName   string `json:"dbName"`
+	} `json:"database"`
 }
-
-// Claims creates a struct that will be encoded to a JWT.
-// We add jwt.StandardClaims as an embedded type, to provide fields like expiry time
-type Claims struct {
-	UserID uint64 `json:"userID"`
-	jwt.StandardClaims
-}
-
-const (
-	TokenPrefix            = "Bearer "
-	TokenPrefixLength      = len(TokenPrefix)
-	RefreshTokenExpiration = 7 * 24 * time.Hour
-)
 
 var Config ConfigStruct
 

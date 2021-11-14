@@ -28,7 +28,12 @@ func GetArticles(c *gin.Context) {
 	if err := c.Bind(&pagination); err != nil {
 		return
 	}
-	pagination.Total = model.ArticlesCount()
+	var err error
+	pagination.Total, err = model.ArticlesCount()
+	if err != nil {
+		c.Error(err)
+		return
+	}
 	if !pagination.IsValid() {
 		c.Error(e.ERROR_RESOURCE_NOT_FOUND)
 		return
@@ -61,7 +66,13 @@ func GetCategoryArticles(c *gin.Context) {
 	if err := c.BindQuery(&pagination); err != nil {
 		return
 	}
-	pagination.Total = model.CategoryArticlesCount(categoryID)
+
+	pagination.Total, err = model.CategoryArticlesCount(categoryID)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+
 	if !pagination.IsValid() {
 		c.Error(e.ERROR_RESOURCE_NOT_FOUND)
 		return
@@ -176,7 +187,11 @@ func GetDrafts(c *gin.Context) {
 		c.Error(err)
 		return
 	}
-	pagination.Total = model.ArticlesCount()
+	pagination.Total, err = model.ArticlesCount()
+	if err != nil {
+		c.Error(err)
+		return
+	}
 	c.JSON(http.StatusOK, gin.H{
 		"drafts":     drafts,
 		"pagination": pagination,

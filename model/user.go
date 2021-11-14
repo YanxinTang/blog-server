@@ -6,6 +6,7 @@ import (
 
 	"github.com/YanxinTang/blog/server/e"
 	"github.com/YanxinTang/blog/server/utils"
+	"github.com/georgysavva/scany/pgxscan"
 )
 
 type User struct {
@@ -17,9 +18,14 @@ type User struct {
 }
 
 func getUserByUsername(username string) (User, error) {
-	res := DB.QueryRowx("SELECT * FROM `user` WHERE `username` = ?", username)
 	var user User
-	err := res.StructScan(&user)
+	err := pgxscan.Get(
+		ctx,
+		db,
+		&user,
+		`SELECT * FROM "user" WHERE username = $1`,
+		username,
+	)
 	return user, err
 }
 
@@ -47,8 +53,9 @@ func Authentication(username, password string) (User, error) {
 func CreateUser(username, email, password string) error {
 	salt := utils.GenerateRandomSalt()
 	hashPassword := utils.HashPassword(password, salt)
-	_, err := DB.Exec(
-		"INSERT INTO `user` (`username`, `email`, `password`, `salt` ) VALUES (?, ?, ?, ?)",
+	_, err := db.Exec(
+		ctx,
+		`INSERT INTO "user" (username, email, password, salt) VALUES ($1, $2, $3, $4)`,
 		username,
 		email,
 		hashPassword,

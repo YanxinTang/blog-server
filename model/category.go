@@ -1,7 +1,7 @@
 package model
 
 import (
-	"log"
+	"github.com/georgysavva/scany/pgxscan"
 )
 
 type Category struct {
@@ -11,68 +11,37 @@ type Category struct {
 
 func GetCategory(ID uint64) (Category, error) {
 	var category Category
-	row := DB.QueryRowx("SELECT `id`, `name`, `created_at`, `updated_at` FROM category WHERE id = ?", ID)
-	if err := row.StructScan(&category); err != nil {
-		return category, err
-	}
-	return category, nil
+	err := pgxscan.Get(ctx, db, &category, "SELECT id, name, created_at, updated_at FROM category WHERE id = $1", ID)
+	return category, err
 }
 
 func CreateCategory(userID uint64, category Category) (Category, error) {
-	res, err := DB.Exec(
-		"INSERT category SET name= ?",
+	err := pgxscan.Get(
+		ctx, db, &category,
+		"INSERT INTO category (name) VALUES ($1) RETURNING *",
 		category.Name,
 	)
-	if err != nil {
-		return category, err
-	}
-	lastInsertID, err := res.LastInsertId()
-	if err != nil {
-		return category, err
-	}
-	lastInsertCategory, err := GetCategory(uint64(lastInsertID))
-	if err != nil {
-		return category, err
-	}
-	return lastInsertCategory, nil
+	return category, err
 }
 
 func GetCategories() ([]Category, error) {
-	rows, err := DB.Queryx("SELECT * FROM category")
-	if err != nil {
-		return nil, err
-	}
-
-	categories := []Category{}
-	for rows.Next() {
-		var category Category
-		err := rows.StructScan(&category)
-		if err != nil {
-			log.Println("获取全部分类出错：", err)
-			continue
-		}
-		categories = append(categories, category)
-	}
-	return categories, nil
+	var category []Category
+	err := pgxscan.Select(ctx, db, &category, "SELECT * FROM category")
+	return category, err
 }
 
 func UpdateCategory(category Category) error {
-	_, err := DB.Exec("UPDATE category SET name = ? WHERE id = ?", category.Name, category.ID)
-	if err != nil {
-		return err
-	}
-	return nil
+	_, err := db.Exec(ctx, "UPDATE category SET name = $1 WHERE id = $2", category.Name, category.ID)
+	return err
 }
 
 func DeleteCategory(categoryID uint64) error {
-	if _, err := DB.Exec("DELETE FROM category WHERE id = ?", categoryID); err != nil {
-		return err
-	}
-	return nil
+	_, err := db.Exec(ctx, "DELETE FROM category WHERE id = $1", categoryID)
+	return err
 }
 
-func CategoriesCount() uint64 {
+func CategoriesCount() (uint64, error) {
 	var count uint64
-	DB.QueryRow("SELECT COUNT(*) FROM category").Scan(&count)
-	return count
+	err := pgxscan.Get(ctx, db, &count, "SELECT COUNT(*) FROM category")
+	return count, err
 }

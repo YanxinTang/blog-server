@@ -1,108 +1,83 @@
--- --------------------------------------------------------
--- 主机:                           127.0.0.1
--- 服务器版本:                        8.0.26 - MySQL Community Server - GPL
--- 服务器操作系统:                      Linux
--- HeidiSQL 版本:                  11.3.0.6295
--- --------------------------------------------------------
+CREATE TABLE public."user" (
+    id bigserial NOT NULL,
+    username text NOT NULL,
+    email text NOT NULL,
+    password text NOT NULL,
+    salt text NOT NULL,
+    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT user_pkey PRIMARY KEY (id),
+    CONSTRAINT user_unique_username UNIQUE (username),
+    CONSTRAINT user_unique_email UNIQUE (email)
+);
 
-/*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
-/*!40101 SET NAMES utf8 */;
-/*!50503 SET NAMES utf8mb4 */;
-/*!40014 SET @OLD_FOREIGN_KEY_CHECKS=@@FOREIGN_KEY_CHECKS, FOREIGN_KEY_CHECKS=0 */;
-/*!40101 SET @OLD_SQL_MODE=@@SQL_MODE, SQL_MODE='NO_AUTO_VALUE_ON_ZERO' */;
-/*!40111 SET @OLD_SQL_NOTES=@@SQL_NOTES, SQL_NOTES=0 */;
+
+CREATE TABLE public.category (
+    id bigserial NOT NULL,
+    name text,
+    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT category_pkey PRIMARY KEY (id),
+    CONSTRAINT category_unique_name UNIQUE (name)
+);
 
 
--- 导出 blog 的数据库结构
-CREATE DATABASE IF NOT EXISTS `blog` /*!40100 DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci */ /*!80016 DEFAULT ENCRYPTION='N' */;
-USE `blog`;
+CREATE TABLE public.article (
+    id bigserial NOT NULL,
+    category_id bigint,
+    title text,
+    content text,
+    status boolean,
+    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    CONSTRAINT article_pkey PRIMARY KEY (id),
+    CONSTRAINT article_fk_category_id FOREIGN KEY (category_id) REFERENCES public.category(id) ON UPDATE RESTRICT ON DELETE CASCADE
+);
 
--- 导出  表 blog.article 结构
-CREATE TABLE IF NOT EXISTS `article` (
-  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
-  `category_id` bigint unsigned NOT NULL,
-  `title` varchar(256) COLLATE utf8mb4_general_ci NOT NULL DEFAULT '',
-  `content` text COLLATE utf8mb4_general_ci NOT NULL,
-  `status` tinyint DEFAULT 0,
-  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `id` (`id`),
-  KEY `FK_category_id` (`category_id`),
-  CONSTRAINT `FK_category_id` FOREIGN KEY (`category_id`) REFERENCES `category` (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci ROW_FORMAT=DYNAMIC;
 
--- 数据导出被取消选择。
+CREATE TABLE public.comment (
+    id bigserial NOT NULL,
+    article_id bigint NOT NULL,
+    parent_id bigint DEFAULT 0 NOT NULL,
+    username text NOT NULL,
+    content text NOT NULL,
+    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT comment_pkey PRIMARY KEY (id),
+    CONSTRAINT comment_fk_article_id FOREIGN KEY (article_id) REFERENCES public.article(id) ON UPDATE RESTRICT ON DELETE CASCADE
+);
 
--- 导出  表 blog.category 结构
-CREATE TABLE IF NOT EXISTS `category` (
-  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
-  `name` varchar(255) COLLATE utf8mb4_general_ci NOT NULL DEFAULT '',
-  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `id` (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci ROW_FORMAT=DYNAMIC;
 
--- 数据导出被取消选择。
+CREATE TABLE public.setting (
+    id bigserial NOT NULL,
+    key text NOT NULL,
+    value text NOT NULL,
+    type integer NOT NULL,
+    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT setting_pkey PRIMARY KEY (id),
+    CONSTRAINT setting_unique_key UNIQUE (key)
+);
 
--- 导出  表 blog.comment 结构
-CREATE TABLE IF NOT EXISTS `comment` (
-  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
-  `article_id` bigint unsigned NOT NULL,
-  `parent_comment_id` bigint unsigned NOT NULL DEFAULT '0',
-  `username` varchar(256) COLLATE utf8mb4_general_ci NOT NULL DEFAULT '',
-  `content` text COLLATE utf8mb4_general_ci NOT NULL,
-  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `id` (`id`),
-  KEY `FK_article_id` (`article_id`),
-  CONSTRAINT `FK_article_id` FOREIGN KEY (`article_id`) REFERENCES `article` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci ROW_FORMAT=DYNAMIC;
 
--- 数据导出被取消选择。
+CREATE FUNCTION public.set_updated_at() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$BEGIN
+   IF row(NEW.*) IS DISTINCT FROM row(OLD.*) THEN
+      NEW.updated_at = now(); 
+      RETURN NEW;
+   ELSE
+      RETURN OLD;
+   END IF;
+END;
+$$;
 
--- 导出  表 blog.schema_migrations 结构
-CREATE TABLE IF NOT EXISTS `schema_migrations` (
-  `version` bigint NOT NULL,
-  `dirty` tinyint(1) NOT NULL,
-  PRIMARY KEY (`version`)
-) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 
--- 数据导出被取消选择。
+CREATE TRIGGER update_article BEFORE UPDATE ON public.article FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+CREATE TRIGGER update_category BEFORE UPDATE ON public.category FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+CREATE TRIGGER update_comment BEFORE UPDATE ON public.comment FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+CREATE TRIGGER update_setting BEFORE UPDATE ON public.setting FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+CREATE TRIGGER update_user BEFORE UPDATE ON public."user" FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
--- 导出  表 blog.setting 结构
-CREATE TABLE IF NOT EXISTS `setting` (
-  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
-  `key` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci DEFAULT '',
-  `value` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci DEFAULT '',
-  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`) USING BTREE,
-  UNIQUE INDEX `key` (`key`) USING BTREE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
--- 数据导出被取消选择。
-
--- 导出  表 blog.user 结构
-CREATE TABLE IF NOT EXISTS `user` (
-  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
-  `username` varchar(64) NOT NULL DEFAULT '',
-  `email` varchar(64) NOT NULL DEFAULT '',
-  `password` varchar(255) NOT NULL DEFAULT '',
-  `salt` varchar(255) NOT NULL DEFAULT '',
-  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `username` (`username`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
-INSERT INTO `setting` (`key`, `value`) VALUES ('signupEnable', 'true');
-
--- 数据导出被取消选择。
-
-/*!40101 SET SQL_MODE=IFNULL(@OLD_SQL_MODE, '') */;
-/*!40014 SET FOREIGN_KEY_CHECKS=IFNULL(@OLD_FOREIGN_KEY_CHECKS, 1) */;
-/*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
-/*!40111 SET SQL_NOTES=IFNULL(@OLD_SQL_NOTES, 1) */;
+INSERT INTO setting (key, value, type) VALUES ('signupEnable', 1, 0);

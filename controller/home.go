@@ -14,11 +14,23 @@ type Pair struct {
 }
 
 func Overview(c *gin.Context) {
-	// session := sessions.Default(c)
+	articlesCount, err := model.ArticlesCount()
+	if err != nil {
+		c.Error(err)
+		return
+	}
 
-	articlesCount := model.ArticlesCount()
-	categoriesCount := model.CategoriesCount()
-	commentsCount := model.CommentsCount()
+	categoriesCount, err := model.CategoriesCount()
+	if err != nil {
+		c.Error(err)
+		return
+	}
+
+	commentsCount, err := model.CommentsCount()
+	if err != nil {
+		c.Error(err)
+		return
+	}
 
 	pairs := make([]Pair, 0, 3)
 	pairs = append(
