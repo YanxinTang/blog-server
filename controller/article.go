@@ -41,7 +41,7 @@ func GetArticles(c *gin.Context) {
 
 	articles, err := model.GetPublishedArticles(pagination)
 	if err != nil {
-		c.Error(err)
+		c.Error(e.ERROR_RESOURCE_NOT_FOUND)
 		return
 	}
 
@@ -102,7 +102,7 @@ func GetArticle(c *gin.Context) {
 	}
 	article, err := model.GetPublishedArticle(articleID)
 	if err != nil {
-		c.Error(err)
+		c.Error(e.ERROR_RESOURCE_NOT_FOUND)
 		return
 	}
 	c.JSON(http.StatusOK, article)

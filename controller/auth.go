@@ -10,12 +10,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-var (
-	ERROR_EMPTY_ARGUMENTS = e.New(http.StatusBadRequest, "用户名和密码不能为空")
-	ERROR_INVALID_AUTH    = e.New(http.StatusBadRequest, "用户名和或密码错误")
-	ERROR_INTERVAL_ERROR  = e.New(http.StatusInternalServerError, "服务器内部错误")
-)
-
 type apiSignupModel struct {
 	Username string `json:"username" binding:"required"`
 	Password string `json:"password" binding:"required"`
@@ -45,13 +39,13 @@ func Signin(c *gin.Context) {
 	var apiSignin apiSigninModel
 	if err := c.ShouldBind(&apiSignin); err != nil {
 		log.Println(err)
-		c.Error(ERROR_EMPTY_ARGUMENTS)
+		c.Error(e.ERROR_EMPTY_ARGUMENTS)
 		return
 	}
 
 	user, err := model.Authentication(apiSignin.Username, apiSignin.Password)
 	if err != nil {
-		c.Error(ERROR_INVALID_AUTH)
+		c.Error(e.ERROR_INVALID_AUTH)
 		return
 	}
 

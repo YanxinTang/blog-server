@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/YanxinTang/blog/server/e"
 	"github.com/YanxinTang/blog/server/model"
 	"github.com/gin-gonic/gin"
 )
@@ -44,7 +45,7 @@ func GetArticleComments(c *gin.Context) {
 
 	comments, err := model.GetArticleComments(articleID)
 	if err != nil {
-		c.Error(err)
+		c.Error(e.ERROR_RESOURCE_NOT_FOUND)
 		return
 	}
 
