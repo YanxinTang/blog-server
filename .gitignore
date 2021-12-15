@@ -1,5 +1,6 @@
 *.local.*
 *.exe
+server
 
 node_modules
 
