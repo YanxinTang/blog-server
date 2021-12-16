@@ -7,7 +7,11 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/golang-migrate/migrate/v4"
+	"github.com/golang-migrate/migrate/v4/database/pgx"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/jackc/pgx/v4/stdlib"
 )
 
 var SigninKey = []byte("blog")
@@ -40,7 +44,7 @@ func ParseConfig() (*Config, error) {
 	return &config, err
 }
 
-func GetDBConnection(postgreConfig PostgresConfig) (*pgxpool.Pool, error) {
+func GetDBConnectionPool(postgreConfig PostgresConfig) (*pgxpool.Pool, error) {
 	dbURL := fmt.Sprintf(
 		"postgres://%s:%s@%s:%s/%s",
 		postgreConfig.User,
@@ -56,8 +60,30 @@ func GetDBConnection(postgreConfig PostgresConfig) (*pgxpool.Pool, error) {
 		fmt.Fprintf(os.Stderr, "Unable to parse config: %v\n", err)
 		os.Exit(1)
 	}
-
-	config.ConnConfig.Logger = &sqlLogger{}
-
 	return pgxpool.ConnectConfig(context.Background(), config)
+}
+
+func GetDBMigrate(pool *pgxpool.Pool) (*migrate.Migrate, error) {
+	db := stdlib.OpenDB(*pool.Config().ConnConfig)
+	driver, err := pgx.WithInstance(db, &pgx.Config{})
+	if err != nil {
+		return nil, err
+	}
+	return migrate.NewWithDatabaseInstance("file://migrations", "pgx", driver)
+}
+
+func GetDefaultConnectionPool() (*pgxpool.Pool, error) {
+	configuration, err := ParseConfig()
+	if err != nil {
+		return nil, err
+	}
+	return GetDBConnectionPool(configuration.Postgres)
+}
+
+func GetDefaultMigrate() (*migrate.Migrate, error) {
+	pool, err := GetDefaultConnectionPool()
+	if err != nil {
+		return nil, err
+	}
+	return GetDBMigrate(pool)
 }

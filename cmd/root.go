@@ -16,11 +16,7 @@ var rootCmd = &cobra.Command{
 	Short: "The backends of simple blog",
 	Long:  "The backends of simple blog",
 	Run: func(cmd *cobra.Command, args []string) {
-		configuration, err := config.ParseConfig()
-		if err != nil {
-			log.Fatal(err)
-		}
-		pool, err := config.GetDBConnection(configuration.Postgres)
+		pool, err := config.GetDefaultConnectionPool()
 		if err != nil {
 			log.Fatal(err)
 		}
