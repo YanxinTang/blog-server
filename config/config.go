@@ -1,45 +1,63 @@
 package config
 
 import (
+	"context"
 	"encoding/json"
-	"io/ioutil"
-	"log"
+	"fmt"
 	"os"
 	"path/filepath"
+
+	"github.com/jackc/pgx/v4/pgxpool"
 )
-
-type ConfigStruct struct {
-	Site struct {
-		Name string `json:"name"`
-	}
-	Auth struct {
-		Username string `json:"username"`
-		Password string `json:"password"`
-	} `json:"auth"`
-	Database struct {
-		Host     string `json:"host"`
-		Port     string `json:"port"`
-		User     string `json:"user"`
-		Password string `json:"password"`
-		DBName   string `json:"dbName"`
-	} `json:"database"`
-}
-
-var Config ConfigStruct
 
 var SigninKey = []byte("blog")
 
-func init() {
+// PostgresConfig persists the config for our PostgreSQL database connection
+type PostgresConfig struct {
+	Host     string `json:"host"`
+	Port     string `json:"port"`
+	User     string `json:"user"`
+	Password string `json:"password"`
+	Database string `json:"database"`
+}
+
+type Config struct {
+	Postgres PostgresConfig `json:"postgres"`
+}
+
+func ParseConfig() (*Config, error) {
 	ex, err := os.Executable()
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 	configFilePath := filepath.Join(filepath.Dir(ex), "./config/config.json")
-	data, err := ioutil.ReadFile(configFilePath)
+	file, err := os.Open(configFilePath)
 	if err != nil {
-		log.Fatalf("Load config error %v:", err)
+		return nil, err
 	}
-	if err := json.Unmarshal(data, &Config); err != nil {
-		log.Fatalf("Read config error %v:", err)
+	var config Config
+	err = json.NewDecoder(file).Decode(&config)
+	return &config, err
+}
+
+func GetDBConnection(postgreConfig PostgresConfig) (*pgxpool.Pool, error) {
+	dbURL := fmt.Sprintf(
+		"postgres://%s:%s@%s:%s/%s",
+		postgreConfig.User,
+		postgreConfig.Password,
+		postgreConfig.Host,
+		postgreConfig.Port,
+		postgreConfig.Database,
+	)
+
+	var err error
+	config, err := pgxpool.ParseConfig(dbURL)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Unable to parse config: %v\n", err)
+		os.Exit(1)
 	}
+
+	config.ConnConfig.Logger = &sqlLogger{}
+
+	return pgxpool.ConnectConfig(context.Background(), config)
 }
