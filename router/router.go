@@ -15,10 +15,8 @@ func init() {
 	gob.Register(&model.User{})
 }
 
-func SetupRouter() *gin.Engine {
+func SetupRouter(store cookie.Store) *gin.Engine {
 	r := gin.Default()
-
-	store := cookie.NewStore([]byte("secret"))
 	r.Use(sessions.Sessions("sessionid", store), middleware.ErrorHandler())
 
 	api := r.Group("api")

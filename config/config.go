@@ -2,11 +2,14 @@ package config
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 
+	"github.com/gin-contrib/sessions/cookie"
+	"github.com/gin-contrib/sessions/postgres"
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/pgx"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
@@ -25,8 +28,14 @@ type PostgresConfig struct {
 	Database string `json:"database"`
 }
 
+type CookieStoreConfig struct {
+	Database string `json:"database"`
+	Secret   string `json:"secret"`
+}
+
 type Config struct {
-	Postgres PostgresConfig `json:"postgres"`
+	Postgres    PostgresConfig    `json:"postgres"`
+	CookieStore CookieStoreConfig `json:"cookieStore"`
 }
 
 func ParseConfig() (*Config, error) {
@@ -70,6 +79,26 @@ func GetDBMigrate(pool *pgxpool.Pool) (*migrate.Migrate, error) {
 		return nil, err
 	}
 	return migrate.NewWithDatabaseInstance("file://migrations", "pgx", driver)
+}
+
+func GetCookieStore(conf Config) (cookie.Store, error) {
+	dbURL := fmt.Sprintf(
+		"postgres://%s:%s@%s:%s/%s?sslmode=disable",
+		conf.Postgres.User,
+		conf.Postgres.Password,
+		conf.Postgres.Host,
+		conf.Postgres.Port,
+		conf.CookieStore.Database,
+	)
+	db, err := sql.Open("postgres", dbURL)
+	if err != nil {
+		return nil, err
+	}
+	store, err := postgres.NewStore(db, []byte(conf.CookieStore.Secret))
+	if err != nil {
+		return nil, err
+	}
+	return store, nil
 }
 
 func GetDefaultConnectionPool() (*pgxpool.Pool, error) {

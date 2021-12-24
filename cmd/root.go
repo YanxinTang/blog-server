@@ -16,12 +16,20 @@ var rootCmd = &cobra.Command{
 	Short: "The backends of simple blog",
 	Long:  "The backends of simple blog",
 	Run: func(cmd *cobra.Command, args []string) {
-		pool, err := config.GetDefaultConnectionPool()
+		conf, err := config.ParseConfig()
+		if err != nil {
+			log.Fatal(err)
+		}
+		pool, err := config.GetDBConnectionPool(conf.Postgres)
+		if err != nil {
+			log.Fatal(err)
+		}
+		store, err := config.GetCookieStore(*conf)
 		if err != nil {
 			log.Fatal(err)
 		}
 		model.Setup(pool)
-		engine := router.SetupRouter()
+		engine := router.SetupRouter(store)
 		engine.Run(":8000")
 	},
 }
