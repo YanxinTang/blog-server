@@ -13,7 +13,7 @@ COPY . .
 RUN go get -d -v
 
 # Build the binary.
-RUN GOOS=linux GOARCH=amd64 go build -ldflags="-w -s" -o /go/bin/server
+RUN go build -ldflags="-w -s" -o /go/bin/server
 
 
 FROM scratch
