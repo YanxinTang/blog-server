@@ -3,8 +3,8 @@ package controller
 import (
 	"net/http"
 
-	"github.com/YanxinTang/blog/server/e"
-	"github.com/YanxinTang/blog/server/model"
+	"github.com/YanxinTang/blog-server/e"
+	"github.com/YanxinTang/blog-server/model"
 	"github.com/gin-gonic/gin"
 )
 

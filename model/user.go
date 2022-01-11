@@ -4,8 +4,8 @@ import (
 	"encoding/base64"
 	"log"
 
-	"github.com/YanxinTang/blog/server/e"
-	"github.com/YanxinTang/blog/server/utils"
+	"github.com/YanxinTang/blog-server/e"
+	"github.com/YanxinTang/blog-server/utils"
 	"github.com/georgysavva/scany/pgxscan"
 )
 

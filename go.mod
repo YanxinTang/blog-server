@@ -1,4 +1,4 @@
-module github.com/YanxinTang/blog/server
+module github.com/YanxinTang/blog-server
 
 go 1.17
 

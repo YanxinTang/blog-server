@@ -3,7 +3,7 @@ package model
 import (
 	"log"
 
-	"github.com/YanxinTang/blog/server/utils"
+	"github.com/YanxinTang/blog-server/utils"
 	"github.com/georgysavva/scany/pgxscan"
 	"github.com/jackc/pgconn"
 )

@@ -5,9 +5,9 @@ import (
 	"log"
 	"os"
 
-	"github.com/YanxinTang/blog/server/config"
-	"github.com/YanxinTang/blog/server/model"
-	"github.com/YanxinTang/blog/server/router"
+	"github.com/YanxinTang/blog-server/config"
+	"github.com/YanxinTang/blog-server/model"
+	"github.com/YanxinTang/blog-server/router"
 	"github.com/spf13/cobra"
 )
 

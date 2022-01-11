@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/YanxinTang/blog/server/config"
+	"github.com/YanxinTang/blog-server/config"
 	"github.com/spf13/cobra"
 )
 

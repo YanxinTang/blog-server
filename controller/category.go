@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/YanxinTang/blog/server/model"
+	"github.com/YanxinTang/blog-server/model"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 )

@@ -1,6 +1,6 @@
 *.local.*
 *.exe
-server
+blog-server
 
 node_modules
 

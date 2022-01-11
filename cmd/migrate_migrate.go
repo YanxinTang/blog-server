@@ -3,7 +3,7 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/YanxinTang/blog/server/config"
+	"github.com/YanxinTang/blog-server/config"
 	"github.com/spf13/cobra"
 )
 

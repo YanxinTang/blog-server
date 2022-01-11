@@ -3,9 +3,9 @@ package router
 import (
 	"encoding/gob"
 
-	"github.com/YanxinTang/blog/server/controller"
-	"github.com/YanxinTang/blog/server/middleware"
-	"github.com/YanxinTang/blog/server/model"
+	"github.com/YanxinTang/blog-server/controller"
+	"github.com/YanxinTang/blog-server/middleware"
+	"github.com/YanxinTang/blog-server/model"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
