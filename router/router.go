@@ -6,8 +6,6 @@ import (
 	"github.com/YanxinTang/blog-server/controller"
 	"github.com/YanxinTang/blog-server/middleware"
 	"github.com/YanxinTang/blog-server/model"
-	"github.com/gin-contrib/sessions"
-	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
 )
 
@@ -15,11 +13,8 @@ func init() {
 	gob.Register(&model.User{})
 }
 
-func SetupRouter(store cookie.Store) *gin.Engine {
-	r := gin.Default()
-	r.Use(sessions.Sessions("sessionid", store), middleware.ErrorHandler())
-
-	api := r.Group("api")
+func SetupRouter(server *gin.Engine) {
+	api := server.Group("api")
 	public := api.Group("")
 	{
 		public.POST("signup", controller.Signup)
@@ -63,6 +58,4 @@ func SetupRouter(store cookie.Store) *gin.Engine {
 		// 工具接口
 		public.POST("setting", controller.SetSetting)
 	}
-
-	return r
 }
