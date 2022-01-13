@@ -3,7 +3,6 @@ package config
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -15,27 +14,28 @@ import (
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/jackc/pgx/v4/stdlib"
+	"gopkg.in/yaml.v2"
 )
 
 var SigninKey = []byte("blog")
 
 // PostgresConfig persists the config for our PostgreSQL database connection
 type PostgresConfig struct {
-	Host     string `json:"host"`
-	Port     string `json:"port"`
-	User     string `json:"user"`
-	Password string `json:"password"`
-	Database string `json:"database"`
+	Host     string `yaml:"host"`
+	Port     string `yaml:"port"`
+	User     string `yaml:"user"`
+	Password string `yaml:"password"`
+	Database string `yaml:"database"`
 }
 
 type CookieStoreConfig struct {
-	Database string `json:"database"`
-	Secret   string `json:"secret"`
+	Database string `yaml:"database"`
+	Secret   string `yaml:"secret"`
 }
 
 type Config struct {
-	Postgres    PostgresConfig    `json:"postgres"`
-	CookieStore CookieStoreConfig `json:"cookieStore"`
+	Postgres    PostgresConfig    `yaml:"postgres"`
+	CookieStore CookieStoreConfig `yaml:"cookiestore"`
 }
 
 func ParseConfig() (*Config, error) {
@@ -43,13 +43,13 @@ func ParseConfig() (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
-	configFilePath := filepath.Join(filepath.Dir(ex), "./config/config.json")
+	configFilePath := filepath.Join(filepath.Dir(ex), "./conf/config.yaml")
 	file, err := os.Open(configFilePath)
 	if err != nil {
 		return nil, err
 	}
 	var config Config
-	err = json.NewDecoder(file).Decode(&config)
+	err = yaml.NewDecoder(file).Decode(&config)
 	return &config, err
 }
 
