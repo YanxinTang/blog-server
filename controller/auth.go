@@ -6,6 +6,7 @@ import (
 
 	"github.com/YanxinTang/blog-server/e"
 	"github.com/YanxinTang/blog-server/model"
+	"github.com/YanxinTang/blog-server/service"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 )
@@ -21,11 +22,18 @@ func Signup(c *gin.Context) {
 	if err := c.Bind(&apiSignup); err != nil {
 		return
 	}
-	if err := model.CreateUser(apiSignup.Username, apiSignup.Email, apiSignup.Password); err != nil {
+
+	user := model.User{
+		Username:    apiSignup.Username,
+		Email:       apiSignup.Email,
+		RawPassword: apiSignup.Password,
+	}
+
+	if err := service.InitUserAndSetting(user); err != nil {
 		c.Error(err)
 		return
 	}
-	model.SetSetting("signupEnable", false)
+
 	c.Status(http.StatusOK)
 }
 

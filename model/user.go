@@ -11,10 +11,11 @@ import (
 
 type User struct {
 	BaseModel
-	Username string `json:"username" db:"username"`
-	Email    string `json:"email" db:"email"`
-	Password string `json:"-" db:"password"`
-	Salt     string `josn:"-" db:"salt"`
+	Username    string `json:"username" db:"username"`
+	Email       string `json:"email" db:"email"`
+	Password    string `json:"-" db:"password"`
+	Salt        string `json:"-" db:"salt"`
+	RawPassword string `json:"-" db:"-"`
 }
 
 func getUserByUsername(username string) (User, error) {
@@ -50,10 +51,10 @@ func Authentication(username, password string) (User, error) {
 	return user, nil
 }
 
-func CreateUser(username, email, password string) error {
+func CreateUserTx(tx Executor, username, email, password string) error {
 	salt := utils.GenerateRandomSalt()
 	hashPassword := utils.HashPassword(password, salt)
-	_, err := db.Exec(
+	_, err := tx.Exec(
 		ctx,
 		`INSERT INTO "user" (username, email, password, salt) VALUES ($1, $2, $3, $4)`,
 		username,
@@ -62,4 +63,8 @@ func CreateUser(username, email, password string) error {
 		base64.StdEncoding.EncodeToString(salt),
 	)
 	return err
+}
+
+func CreateUser(username, email, password string) error {
+	return CreateUserTx(db, username, email, password)
 }

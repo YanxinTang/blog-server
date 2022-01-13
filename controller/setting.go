@@ -3,43 +3,43 @@ package controller
 import (
 	"net/http"
 
-	"github.com/YanxinTang/blog-server/e"
 	"github.com/YanxinTang/blog-server/model"
 	"github.com/gin-gonic/gin"
 )
 
+type apiGetSettingQuery struct {
+	Key string `form:"key" binding:"required"`
+}
+
 func GetSetting(c *gin.Context) {
-	key := c.Query("key")
-	if key == "" {
-		c.Error(e.New(http.StatusBadRequest, "设置项名称不能为空"))
+	var query apiGetSettingQuery
+	if err := c.BindQuery(&query); err != nil {
 		return
 	}
-	rawValue := model.GetSetting(key)
-	var value interface{}
-	switch rawValue {
-	case "null":
-		value = nil
-	case "1":
-		value = true
-	case "0":
-		value = false
-	default:
-		value = rawValue
+	setting, err := model.GetSetting(query.Key)
+	if err != nil {
+		c.Error(err)
+		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"key":   key,
-		"value": value,
+		"key":   query.Key,
+		"value": setting.Value,
 	})
 }
 
+type apiSetSettingBody struct {
+	Key   string `json:"key" binding:"required"`
+	Value string `json:"value" binding:"required"`
+}
+
 func SetSetting(c *gin.Context) {
-	var setting model.Setting
-	if err := c.Bind(&setting); err != nil {
+	var apiSetSetting apiSetSettingBody
+	if err := c.Bind(&apiSetSetting); err != nil {
 		return
 	}
 
-	if err := model.SetSetting(setting.Key, setting.Value); err != nil {
+	if err := model.SetSetting(apiSetSetting.Key, apiSetSetting.Value); err != nil {
 		c.Error(err)
 		return
 	}

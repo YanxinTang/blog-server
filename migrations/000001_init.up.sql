@@ -52,7 +52,6 @@ CREATE TABLE public.setting (
     id bigserial NOT NULL,
     key text NOT NULL,
     value text NOT NULL,
-    type integer NOT NULL,
     updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
     created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT setting_pkey PRIMARY KEY (id),
@@ -80,4 +79,4 @@ CREATE TRIGGER update_setting BEFORE UPDATE ON public.setting FOR EACH ROW EXECU
 CREATE TRIGGER update_user BEFORE UPDATE ON public."user" FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 
-INSERT INTO setting (key, value, type) VALUES ('signupEnable', 1, 0);
+INSERT INTO setting (key, value) VALUES ('signupEnable', 1);

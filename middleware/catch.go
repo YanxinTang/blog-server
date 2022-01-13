@@ -45,8 +45,8 @@ func ErrorHandler() gin.HandlerFunc {
 			lastError := c.Errors.Last().Err
 			switch err := lastError.(type) {
 			case e.ApiError:
-				c.AbortWithStatusJSON(err.Code, gin.H{
-					"message": err.Message,
+				c.AbortWithStatusJSON(err.Code(), gin.H{
+					"message": err.Error(),
 				})
 			case validator.ValidationErrors:
 				languages := acceptedLanguages(c)
