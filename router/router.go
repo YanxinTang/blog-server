@@ -56,6 +56,6 @@ func SetupRouter(server *gin.Engine) {
 		protected.DELETE("drafts/:draftID", controller.DeleteDraft)
 
 		// 工具接口
-		public.POST("setting", controller.SetSetting)
+		protected.POST("setting", controller.SetSetting)
 	}
 }
