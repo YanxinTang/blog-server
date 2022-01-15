@@ -25,9 +25,9 @@ func CreateCategory(userID uint64, category Category) (Category, error) {
 }
 
 func GetCategories() ([]Category, error) {
-	var category []Category
-	err := pgxscan.Select(ctx, db, &category, "SELECT * FROM category")
-	return category, err
+	categories := []Category{}
+	err := pgxscan.Select(ctx, db, &categories, "SELECT * FROM category")
+	return categories, err
 }
 
 func UpdateCategory(category Category) error {
