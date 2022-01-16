@@ -55,6 +55,13 @@ func SetupRouter(server *gin.Engine) {
 		protected.PUT("drafts/:draftID", controller.UpdateDraft)
 		protected.DELETE("drafts/:draftID", controller.DeleteDraft)
 
+		// 存储
+		protected.GET("storages", controller.GetStorages)
+		protected.GET("storages/:storageID", controller.GetStorage)
+		protected.POST("storages", controller.CreateStorage)
+		protected.PUT("storages/:storageID", controller.UpdateStorage)
+		protected.DELETE("storages/:storageID", controller.DeleteStorage)
+
 		// 工具接口
 		protected.POST("setting", controller.SetSetting)
 	}
