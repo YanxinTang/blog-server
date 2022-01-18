@@ -35,6 +35,7 @@ func SetupRouter(server *gin.Engine) {
 	protected := api.Group("admin", middleware.Auth())
 	{
 		protected.GET("overview", controller.Overview) // 总览
+		protected.GET("overview/storage", controller.OverviewStorage)
 
 		// 分类
 		protected.POST("/categories", controller.CareteCategory)

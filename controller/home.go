@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"github.com/YanxinTang/blog-server/model"
+	"github.com/YanxinTang/blog-server/service"
 	"github.com/gin-gonic/gin"
 )
 
@@ -40,4 +41,35 @@ func Overview(c *gin.Context) {
 		Pair{"评论数量", strconv.FormatUint(commentsCount, 10)},
 	)
 	c.JSON(http.StatusOK, pairs)
+}
+
+type StorageOverviewItem struct {
+	ID       uint64 `json:"id"`
+	Name     string `json:"name"`
+	Usage    int64  `json:"usage"`
+	Capacity int64  `json:"capacity"`
+}
+
+func OverviewStorage(c *gin.Context) {
+	svcs, err := service.GetStorageServices()
+	if err != nil {
+		c.Error(err)
+		return
+	}
+
+	var storageOverviewItems []StorageOverviewItem
+	for _, svc := range svcs {
+		usage, err := service.GetStorageUsage(svc)
+		if err != nil {
+			c.Error(err)
+			return
+		}
+		storageOverviewItems = append(storageOverviewItems, StorageOverviewItem{
+			ID:       svc.Storage.ID,
+			Name:     svc.Storage.Name,
+			Usage:    usage,
+			Capacity: svc.Storage.Capacity,
+		})
+	}
+	c.JSON(http.StatusOK, storageOverviewItems)
 }
