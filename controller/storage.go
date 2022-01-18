@@ -37,7 +37,7 @@ type createStorageBody struct {
 	Name      string `json:"name" binding:"required"`
 	SecretID  string `json:"secretID" binding:"required"`
 	SecretKey string `json:"secretKey" binding:"required"`
-	Token     string `json:"token" binding:"required"`
+	Token     string `json:"token"`
 	Region    string `json:"region" binding:"required"`
 	Endpoint  string `json:"endpoint" binding:"required"`
 	Bucket    string `json:"bucket" binding:"required"`
@@ -72,7 +72,7 @@ type updateStorageBody struct {
 	Name      string `json:"name" binding:"required"`
 	SecretID  string `json:"secretID" binding:"required"`
 	SecretKey string `json:"secretKey" binding:"required"`
-	Token     string `json:"token" binding:"required"`
+	Token     string `json:"token"`
 	Region    string `json:"region" binding:"required"`
 	Endpoint  string `json:"endpoint" binding:"required"`
 	Bucket    string `json:"bucket" binding:"required"`
