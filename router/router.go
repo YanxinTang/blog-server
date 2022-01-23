@@ -62,6 +62,9 @@ func SetupRouter(server *gin.Engine) {
 		protected.POST("storages", controller.CreateStorage)
 		protected.PUT("storages/:storageID", controller.UpdateStorage)
 		protected.DELETE("storages/:storageID", controller.DeleteStorage)
+		protected.GET("storages/:storageID/objects", controller.GetStorageObjects)
+		protected.DELETE("storages/:storageID/object", controller.DeleteStorageObject)
+		protected.PUT("storages/:storageID/upload", controller.PutStorageObject)
 
 		// 工具接口
 		protected.POST("setting", controller.SetSetting)
