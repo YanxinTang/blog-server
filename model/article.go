@@ -1,11 +1,11 @@
 package model
 
 import (
-	"log"
-
+	"github.com/YanxinTang/blog-server/internal/pkg/log"
 	"github.com/YanxinTang/blog-server/utils"
 	"github.com/georgysavva/scany/pgxscan"
 	"github.com/jackc/pgconn"
+	"go.uber.org/zap"
 )
 
 const (
@@ -61,7 +61,7 @@ func getArticles(status bool, pagination Pagination) ([]Article, error) {
 			&article.Category.CreatedAt,
 			&article.Category.UpdatedAt,
 		); err != nil {
-			log.Println("获取 articles 错误：", err)
+			log.Warn("failed to scan article", zap.Error(err))
 			continue
 		}
 		articles = append(articles, article)

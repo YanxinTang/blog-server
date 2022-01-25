@@ -2,11 +2,12 @@ package model
 
 import (
 	"encoding/base64"
-	"log"
 
 	"github.com/YanxinTang/blog-server/e"
+	"github.com/YanxinTang/blog-server/internal/pkg/log"
 	"github.com/YanxinTang/blog-server/utils"
 	"github.com/georgysavva/scany/pgxscan"
+	"go.uber.org/zap"
 )
 
 type User struct {
@@ -33,18 +34,34 @@ func getUserByUsername(username string) (User, error) {
 func Authentication(username, password string) (User, error) {
 	user, err := getUserByUsername(username)
 	if err != nil {
-		log.Printf("getUserByUsername(%s): %s", username, err)
+		log.Error(
+			"failed to get user by username",
+			zap.String("username", username),
+			zap.Error(err),
+		)
 		return user, e.ERROR_INVALID_AUTH
 	}
 
 	salt, err := base64.StdEncoding.DecodeString(user.Salt)
 	if err != nil {
-		log.Printf("base64.StdEncoding.DecodeString(%s): %s", user.Salt, err)
+		log.Error(
+			"failed to decode salt",
+			zap.String("username", username),
+			zap.String("salt", user.Salt),
+			zap.Error(err),
+		)
 		return user, e.ERROR_INVALID_AUTH
 	}
 
 	if !utils.DoPasswordsMatch(user.Password, password, salt) {
-		log.Printf("base64.StdEncoding.DecodeString(%s, %s): %s", user.Password, password, err)
+		log.Warn(
+			"password does not match",
+			zap.Uint64("userID", user.ID),
+			zap.String("user password", user.Password),
+			zap.String("request password", password),
+			zap.String("salt", user.Salt),
+			zap.Error(err),
+		)
 		return user, e.ERROR_INVALID_AUTH
 	}
 

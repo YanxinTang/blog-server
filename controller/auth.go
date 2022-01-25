@@ -1,7 +1,6 @@
 package controller
 
 import (
-	"log"
 	"net/http"
 
 	"github.com/YanxinTang/blog-server/e"
@@ -46,7 +45,6 @@ type apiSigninModel struct {
 func Signin(c *gin.Context) {
 	var apiSignin apiSigninModel
 	if err := c.ShouldBind(&apiSignin); err != nil {
-		log.Println(err)
 		c.Error(e.ERROR_EMPTY_ARGUMENTS)
 		return
 	}

@@ -1,7 +1,6 @@
 package middleware
 
 import (
-	"log"
 	"net/http"
 	"strings"
 
@@ -57,7 +56,6 @@ func ErrorHandler() gin.HandlerFunc {
 				})
 
 			default:
-				log.Println(err)
 				c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
 					"message": "内部错误",
 				})

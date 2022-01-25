@@ -1,22 +1,23 @@
 package controller
 
 import (
-	"log"
 	"net/http"
 	"strconv"
 
 	"github.com/YanxinTang/blog-server/e"
+	"github.com/YanxinTang/blog-server/internal/pkg/log"
 	"github.com/YanxinTang/blog-server/model"
 	"github.com/YanxinTang/blog-server/service"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 )
 
 func GetStorages(c *gin.Context) {
 	storages, err := model.GetStorages()
 	if err != nil {
-		log.Println(err)
+		log.Error("failed to get storages", zap.Error(err))
 		c.Error(e.New(http.StatusBadRequest, "存储列表获取失败"))
 		return
 	}
@@ -63,7 +64,6 @@ func CreateStorage(c *gin.Context) {
 
 	storage, err := model.CreateStorage(storage)
 	if err != nil {
-		log.Println(err)
 		c.Error(e.New(http.StatusBadRequest, "存储创建失败"))
 		return
 	}
@@ -107,7 +107,6 @@ func UpdateStorage(c *gin.Context) {
 
 	err = model.UpdateStorage(storage)
 	if err != nil {
-		log.Println(err)
 		c.Error(e.New(http.StatusNotFound, "找不到此存储"))
 		return
 	}
@@ -122,7 +121,6 @@ func DeleteStorage(c *gin.Context) {
 	}
 	err = model.DeleteStorage(storageID)
 	if err != nil {
-		log.Println(err)
 		c.Error(e.New(http.StatusNotFound, "找不到此存储"))
 		return
 	}
@@ -165,14 +163,12 @@ func PutStorageObject(c *gin.Context) {
 	}
 	fileHeader, err := c.FormFile("file")
 	if err != nil {
-		log.Println(err)
 		c.Error(e.New(http.StatusBadRequest, "获取上传文件失败"))
 		return
 	}
 
 	file, err := fileHeader.Open()
 	if err != nil {
-		log.Println(err)
 		c.Error(e.New(http.StatusBadRequest, "打开文件失败"))
 		return
 	}

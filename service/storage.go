@@ -1,15 +1,16 @@
 package service
 
 import (
-	"log"
 	"net/http"
 
 	"github.com/YanxinTang/blog-server/e"
+	"github.com/YanxinTang/blog-server/internal/pkg/log"
 	"github.com/YanxinTang/blog-server/model"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
+	"go.uber.org/zap"
 )
 
 type StorageService struct {
@@ -31,12 +32,12 @@ func newS3Session(conf model.Storage) (*session.Session, error) {
 func GetStorageService(storageID uint64) (*StorageService, e.ApiError) {
 	conf, err := model.GetStorage(storageID)
 	if err != nil {
-		log.Println("model.GetStorage: ", err)
+		log.Error("failed to get storage from db", zap.Error(err))
 		return nil, e.New(http.StatusBadRequest, "获取存储失败")
 	}
 	sess, err := newS3Session(conf)
 	if err != nil {
-		log.Println("newS3Session: ", err)
+		log.Error("failed to create s3 session", zap.Error(err))
 		return nil, e.New(http.StatusInternalServerError, "初始化 S3 会话失败")
 	}
 	svc := StorageService{
@@ -50,13 +51,13 @@ func GetStorageServices() ([]StorageService, e.ApiError) {
 	var services []StorageService
 	storages, err := model.GetStorages()
 	if err != nil {
-		log.Println("存储列表获取失败: ", err)
+		log.Error("failed to get storages from db", zap.Error(err))
 		return nil, e.New(http.StatusBadRequest, "存储列表获取失败")
 	}
 	for _, conf := range storages {
 		sess, err := newS3Session(conf)
 		if err != nil {
-			log.Println("newS3Session: ", err)
+			log.Error("failed to create s3 session", zap.Error(err))
 			return nil, e.New(http.StatusInternalServerError, "初始化 S3 会话失败")
 		}
 		svc := StorageService{
@@ -72,7 +73,11 @@ func GetStorageUsage(svc StorageService) (int64, e.ApiError) {
 	listBucketsInput := s3.ListBucketsInput{}
 	listBucketsOutput, err := svc.S3.ListBuckets(&listBucketsInput)
 	if err != nil {
-		log.Println("获取存储桶列表失败: ", err)
+		log.Error(
+			"failed to get bucket list",
+			zap.Uint64("storageID", svc.Storage.ID),
+			zap.Error(err),
+		)
 		return 0, e.New(http.StatusBadRequest, "获取存储桶列表失败")
 	}
 	var usage int64
@@ -108,12 +113,16 @@ func GetStorageBucketUsage(svc StorageService, name string) (int64, e.ApiError) 
 func StorageListObjects(storageID uint64, listObjectsV2Input s3.ListObjectsV2Input) (*s3.ListObjectsV2Output, e.ApiError) {
 	conf, err := model.GetStorage(storageID)
 	if err != nil {
-		log.Println("model.GetStorage: ", err)
+		log.Error(
+			"failed to get storage from db",
+			zap.Uint64("storageID", storageID),
+			zap.Error(err),
+		)
 		return nil, e.New(http.StatusBadRequest, "获取存储失败")
 	}
 	sess, err := newS3Session(conf)
 	if err != nil {
-		log.Println("newS3Session: ", err)
+		log.Error("failed to create s3 session", zap.Error(err))
 		return nil, e.New(http.StatusInternalServerError, "初始化 S3 会话失败")
 	}
 	s3svc := s3.New(sess)
@@ -122,7 +131,7 @@ func StorageListObjects(storageID uint64, listObjectsV2Input s3.ListObjectsV2Inp
 
 	listObjectsV2Output, err := s3svc.ListObjectsV2(&listObjectsV2Input)
 	if err != nil {
-		log.Println("s3svc.ListObjectsV2: ", err)
+		log.Error("failed go get object list", zap.Uint64("storageID", storageID), zap.Error(err))
 		return nil, e.New(http.StatusBadRequest, "获取存储文件列表失败")
 	}
 	return listObjectsV2Output, nil
@@ -136,7 +145,11 @@ func StoragePubObject(storageID uint64, putObjectInput s3.PutObjectInput) (*s3.P
 	putObjectInput.SetBucket(svc.Storage.Bucket)
 	pubObjectOutput, err := svc.S3.PutObject(&putObjectInput)
 	if err != nil {
-		log.Println(err)
+		log.Error("failed to upload file",
+			zap.Uint64("storageID", storageID),
+			zap.String("key", *putObjectInput.Key),
+			zap.Error(err),
+		)
 		return nil, e.New(http.StatusBadRequest, "上传文件失败")
 	}
 	return pubObjectOutput, nil
@@ -150,6 +163,12 @@ func StorageDeleteObject(storageID uint64, deleteObjectInput s3.DeleteObjectInpu
 	deleteObjectInput.SetBucket(svc.Storage.Bucket)
 	deleteObjectOutput, err := svc.S3.DeleteObject(&deleteObjectInput)
 	if err != nil {
+		log.Error(
+			"failed to delete file",
+			zap.Uint64("storageID", storageID),
+			zap.String("key", *deleteObjectInput.Key),
+			zap.Error(err),
+		)
 		e.New(http.StatusBadRequest, "删除文件失败")
 	}
 	return deleteObjectOutput, nil
