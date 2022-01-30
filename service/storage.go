@@ -10,12 +10,18 @@ import (
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"go.uber.org/zap"
 )
 
 type StorageService struct {
 	Storage *model.Storage
 	S3      *s3.S3
+}
+
+type StorageDownloader struct {
+	Storage    *model.Storage
+	Downloader *s3manager.Downloader
 }
 
 func newS3Session(conf model.Storage) (*session.Session, error) {
@@ -45,6 +51,24 @@ func GetStorageService(storageID uint64) (*StorageService, e.ApiError) {
 		S3:      s3.New(sess),
 	}
 	return &svc, nil
+}
+
+func GetStorageDownloader(storageID uint64) (*StorageDownloader, e.ApiError) {
+	conf, err := model.GetStorage(storageID)
+	if err != nil {
+		log.Error("failed to get storage from db", zap.Error(err))
+		return nil, e.New(http.StatusBadRequest, "获取存储失败")
+	}
+	sess, err := newS3Session(conf)
+	if err != nil {
+		log.Error("failed to create s3 session", zap.Error(err))
+		return nil, e.New(http.StatusInternalServerError, "初始化 S3 会话失败")
+	}
+	downloader := StorageDownloader{
+		Storage:    &conf,
+		Downloader: s3manager.NewDownloader(sess),
+	}
+	return &downloader, nil
 }
 
 func GetStorageServices() ([]StorageService, e.ApiError) {

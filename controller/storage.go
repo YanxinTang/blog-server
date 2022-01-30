@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"io"
 	"net/http"
 	"strconv"
 
@@ -35,6 +36,46 @@ func GetStorage(c *gin.Context) {
 		c.Error(e.New(http.StatusBadRequest, "存储信息获取失败"))
 	}
 	c.JSON(http.StatusOK, storage)
+}
+
+// cover writer to writerat
+type FakerWriteAt struct {
+	w io.Writer
+}
+
+func (w *FakerWriteAt) WriteAt(p []byte, off int64) (n int, err error) {
+	return w.w.Write(p)
+}
+
+func GetStorageObject(c *gin.Context) {
+	storageID, err := strconv.ParseUint(c.Param("storageID"), 10, 64)
+	if err != nil {
+		c.Error(e.New(http.StatusBadRequest, "ID 应该是整数"))
+		return
+	}
+	d, apierr := service.GetStorageDownloader(storageID)
+	if apierr != nil {
+		c.Error(apierr)
+		return
+	}
+	key := c.Param("key")
+	getObjectInput := s3.GetObjectInput{
+		Bucket: aws.String(d.Storage.Bucket),
+		Key:    aws.String(key),
+	}
+	writerAt := FakerWriteAt{c.Writer}
+	defer (func() {
+		_, err := d.Downloader.Download(&writerAt, &getObjectInput)
+		if err != nil {
+			log.Warn(
+				"failed to download",
+				zap.Uint64("storageID", storageID),
+				zap.String("key", key),
+				zap.Error(err),
+			)
+		}
+	})()
+	c.Status(http.StatusOK)
 }
 
 type createStorageBody struct {

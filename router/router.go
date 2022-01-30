@@ -30,6 +30,8 @@ func SetupRouter(server *gin.Engine) {
 		public.GET("categories/:categoryID/articles", controller.GetCategoryArticles)
 
 		public.GET("setting", controller.GetSetting)
+
+		public.GET("storages/:storageID/:key", controller.GetStorageObject)
 	}
 
 	protected := api.Group("admin", middleware.Auth())
