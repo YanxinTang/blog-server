@@ -6,9 +6,18 @@ import (
 	"strings"
 
 	"github.com/YanxinTang/blog-server/e"
+	"github.com/YanxinTang/blog-server/internal/pkg/log"
 	"github.com/YanxinTang/blog-server/model"
+	"github.com/YanxinTang/blog-server/service"
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 )
+
+type CreateCommentReq struct {
+	VerifyCaptchaReq
+	Username string `json:"username"`
+	Content  string `json:"content" binding:"required"`
+}
 
 func CreateComment(c *gin.Context) {
 	articleID, err := strconv.ParseUint(c.Param("articleID"), 10, 64)
@@ -16,13 +25,23 @@ func CreateComment(c *gin.Context) {
 		c.Error(err)
 		return
 	}
-	var comment model.Comment
-	comment.ArticleID = articleID
-	if err := c.Bind(&comment); err != nil {
+	var createCommentReq CreateCommentReq
+	if err := c.BindJSON(&createCommentReq); err != nil {
+		log.Warn("create comment binding error", zap.Error(err))
 		return
 	}
 
-	comment.Username = strings.TrimSpace(comment.Username)
+	if apierr := service.VerifyCaptcha(createCommentReq.Key, createCommentReq.Text); apierr != nil {
+		c.Error(apierr)
+		return
+	}
+
+	comment := model.Comment{
+		ArticleID: articleID,
+		Username:  strings.TrimSpace(createCommentReq.Username),
+		Content:   createCommentReq.Content,
+	}
+
 	if comment.Username == "" {
 		comment.Username = "匿名"
 	}

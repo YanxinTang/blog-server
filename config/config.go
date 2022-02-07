@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-contrib/sessions/postgres"
@@ -18,6 +19,7 @@ import (
 )
 
 var SigninKey = []byte("blog")
+var CaptchaExpiration = time.Minute * 5
 
 // PostgresConfig persists the config for our PostgreSQL database connection
 type PostgresConfig struct {

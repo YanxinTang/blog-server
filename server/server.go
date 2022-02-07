@@ -6,6 +6,7 @@ import (
 	"github.com/YanxinTang/blog-server/middleware"
 	"github.com/YanxinTang/blog-server/model"
 	"github.com/YanxinTang/blog-server/router"
+	"github.com/YanxinTang/blog-server/service"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
@@ -25,6 +26,8 @@ func New() *gin.Engine {
 		log.Fatal("failed to get cookie store", zap.Error(err))
 	}
 	model.Setup(pool)
+
+	go service.CaptchaStoreGC()
 
 	svr := gin.Default()
 	svr.Use(sessions.Sessions("sessionid", store), middleware.ErrorHandler())

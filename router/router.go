@@ -32,6 +32,8 @@ func SetupRouter(server *gin.Engine) {
 		public.GET("setting", controller.GetSetting)
 
 		public.GET("storages/:storageID/:key", controller.GetStorageObject)
+
+		public.GET("captcha", controller.GetCapacha)
 	}
 
 	protected := api.Group("admin", middleware.Auth())

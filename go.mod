@@ -8,16 +8,19 @@ require (
 	github.com/georgysavva/scany v0.2.9
 	github.com/gin-contrib/sessions v0.0.4
 	github.com/gin-gonic/gin v1.7.7
+	github.com/google/uuid v1.3.0
 	github.com/jackc/pgconn v1.10.0
 	github.com/jackc/pgx/v4 v4.13.0
 	github.com/microcosm-cc/bluemonday v1.0.15
 	github.com/russross/blackfriday v2.0.0+incompatible
+	github.com/steambap/captcha v1.4.1
 	github.com/stretchr/testify v1.7.0
 	go.uber.org/zap v1.19.1
 )
 
 require (
 	github.com/antonlindstrom/pgstore v0.0.0-20200229204646-b08ebf1105e0 // indirect
+	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0 // indirect
 	github.com/hashicorp/errwrap v1.0.0 // indirect
 	github.com/hashicorp/go-multierror v1.1.0 // indirect
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
@@ -27,6 +30,7 @@ require (
 	github.com/spf13/pflag v1.0.5 // indirect
 	go.uber.org/atomic v1.7.0 // indirect
 	go.uber.org/multierr v1.6.0 // indirect
+	golang.org/x/image v0.0.0-20210628002857-a66eb6448b8d // indirect
 )
 
 require (

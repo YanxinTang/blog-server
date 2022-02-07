@@ -57,7 +57,7 @@ func OverviewStorage(c *gin.Context) {
 		return
 	}
 
-	var storageOverviewItems []StorageOverviewItem
+	storageOverviewItems := make([]StorageOverviewItem, 0, len(svcs))
 	for _, svc := range svcs {
 		usage, err := service.GetStorageUsage(svc)
 		if err != nil {
