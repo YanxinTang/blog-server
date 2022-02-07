@@ -5,7 +5,7 @@ import (
 	"encoding/base64"
 	"net/http"
 
-	"github.com/YanxinTang/blog-server/service"
+	"github.com/YanxinTang/blog-server/internal/app/service"
 	"github.com/gin-gonic/gin"
 )
 

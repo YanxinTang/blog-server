@@ -3,7 +3,7 @@ package model
 import (
 	"encoding/base64"
 
-	"github.com/YanxinTang/blog-server/e"
+	"github.com/YanxinTang/blog-server/internal/pkg/e"
 	"github.com/YanxinTang/blog-server/internal/pkg/log"
 	"github.com/YanxinTang/blog-server/utils"
 	"github.com/georgysavva/scany/pgxscan"

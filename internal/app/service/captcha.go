@@ -6,9 +6,9 @@ import (
 	"time"
 
 	"github.com/YanxinTang/blog-server/config"
-	"github.com/YanxinTang/blog-server/e"
+	"github.com/YanxinTang/blog-server/internal/pkg/e"
 	"github.com/YanxinTang/blog-server/internal/pkg/log"
-	"github.com/YanxinTang/blog-server/model"
+	"github.com/YanxinTang/blog-server/internal/pkg/model"
 	"github.com/google/uuid"
 	"github.com/steambap/captcha"
 	"go.uber.org/zap"

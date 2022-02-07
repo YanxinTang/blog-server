@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/YanxinTang/blog-server/e"
+	"github.com/YanxinTang/blog-server/internal/pkg/e"
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/binding"
 	"github.com/go-playground/locales/en"

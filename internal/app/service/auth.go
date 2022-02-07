@@ -1,9 +1,9 @@
 package service
 
 import (
-	"github.com/YanxinTang/blog-server/e"
+	"github.com/YanxinTang/blog-server/internal/pkg/e"
 	"github.com/YanxinTang/blog-server/internal/pkg/log"
-	"github.com/YanxinTang/blog-server/model"
+	"github.com/YanxinTang/blog-server/internal/pkg/model"
 	"go.uber.org/zap"
 )
 

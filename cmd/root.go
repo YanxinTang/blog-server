@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/YanxinTang/blog-server/server"
+	"github.com/YanxinTang/blog-server/internal/app/server"
 	"github.com/spf13/cobra"
 )
 

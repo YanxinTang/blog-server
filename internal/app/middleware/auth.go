@@ -1,7 +1,7 @@
 package middleware
 
 import (
-	"github.com/YanxinTang/blog-server/e"
+	"github.com/YanxinTang/blog-server/internal/pkg/e"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 )

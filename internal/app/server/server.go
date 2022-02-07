@@ -2,11 +2,11 @@ package server
 
 import (
 	"github.com/YanxinTang/blog-server/config"
+	"github.com/YanxinTang/blog-server/internal/app/middleware"
+	"github.com/YanxinTang/blog-server/internal/app/router"
+	"github.com/YanxinTang/blog-server/internal/app/service"
 	"github.com/YanxinTang/blog-server/internal/pkg/log"
-	"github.com/YanxinTang/blog-server/middleware"
-	"github.com/YanxinTang/blog-server/model"
-	"github.com/YanxinTang/blog-server/router"
-	"github.com/YanxinTang/blog-server/service"
+	"github.com/YanxinTang/blog-server/internal/pkg/model"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
