@@ -127,6 +127,7 @@ func CreateArticle(c *gin.Context) {
 		Title:      apiCreateArticle.Title,
 		CategoryID: apiCreateArticle.CategoryID,
 		Content:    apiCreateArticle.Content,
+		Status:     model.StatusPublished,
 	}
 
 	lastInsertArticle, err := model.CreateArticle(userID, article)
