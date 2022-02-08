@@ -26,7 +26,7 @@ func GetStorages(c *gin.Context) {
 }
 
 func GetStorage(c *gin.Context) {
-	storageID, err := strconv.ParseUint(c.Param("categoryID"), 10, 64)
+	storageID, err := strconv.ParseUint(c.Param("storageID"), 10, 64)
 	if err != nil {
 		c.Error(e.New(http.StatusBadRequest, "ID 应该是整数"))
 		return
