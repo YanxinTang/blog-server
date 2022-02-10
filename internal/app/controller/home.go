@@ -15,7 +15,7 @@ type Pair struct {
 }
 
 func Overview(c *gin.Context) {
-	articlesCount, err := model.ArticlesCount()
+	articlesCount, err := model.GetArticlesCount(0, model.StatusAll)
 	if err != nil {
 		c.Error(err)
 		return

@@ -47,6 +47,7 @@ func SetupRouter(server *gin.Engine) {
 		protected.DELETE("/categories/:categoryID", controller.DeleteCategory)
 
 		// 文章
+		protected.GET("articles", controller.ProtectedGetArticles)
 		protected.POST("articles", controller.CreateArticle)
 		protected.DELETE("/articles/:articleID", controller.DeleteArticle)
 		protected.PUT("/articles/:articleID", controller.UpdateArticle)

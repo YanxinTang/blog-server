@@ -5,12 +5,14 @@ import (
 	"github.com/YanxinTang/blog-server/utils"
 	"github.com/georgysavva/scany/pgxscan"
 	"github.com/jackc/pgconn"
+	"github.com/jackc/pgx/v4"
 	"go.uber.org/zap"
 )
 
 const (
-	StatusPublished = iota
-	StatusDraft     = iota
+	StatusAll       = iota - 1
+	StatusPublished = iota - 1
+	StatusDraft     = iota - 1
 )
 
 type ArticleStatus int
@@ -29,21 +31,40 @@ func (a *Article) Summary() string {
 	return utils.Summary(a.Content)
 }
 
-func getArticles(status ArticleStatus, pagination Pagination) ([]Article, error) {
+func GetArticles(status ArticleStatus, pagination Pagination) ([]Article, error) {
 	start := (pagination.Page - 1) * pagination.PerPage
-	rows, err := db.Query(
-		ctx,
-		`SELECT a.id, a.category_id, a.title, a.content, a.created_at, a.updated_at, c.id, c.name, c.created_at, c.updated_at 
-		FROM article as a
-		LEFT JOIN category as c
-		ON a.category_id = c.id
-		WHERE a.status = $1
-		ORDER BY a.id DESC LIMIT $2 OFFSET $3
-		`,
-		status,
-		pagination.PerPage,
-		start,
-	)
+	var rows pgx.Rows
+	var err error
+
+	switch status {
+	case StatusAll:
+		rows, err = db.Query(
+			ctx,
+			`SELECT a.id, a.category_id, a.title, a.created_at, a.updated_at, c.id, c.name, c.created_at, c.updated_at 
+			FROM article as a
+			LEFT JOIN category as c
+			ON a.category_id = c.id
+			ORDER BY a.id DESC LIMIT $1 OFFSET $2
+			`,
+			pagination.PerPage,
+			start,
+		)
+	default:
+		rows, err = db.Query(
+			ctx,
+			`SELECT a.id, a.category_id, a.title, a.created_at, a.updated_at, c.id, c.name, c.created_at, c.updated_at 
+			FROM article as a
+			LEFT JOIN category as c
+			ON a.category_id = c.id
+			WHERE a.status = $1
+			ORDER BY a.id DESC LIMIT $2 OFFSET $3
+			`,
+			status,
+			pagination.PerPage,
+			start,
+		)
+	}
+
 	if err != nil {
 		return nil, err
 	}
@@ -55,7 +76,6 @@ func getArticles(status ArticleStatus, pagination Pagination) ([]Article, error)
 			&article.BaseModel.ID,
 			&article.CategoryID,
 			&article.Title,
-			&article.Content,
 			&article.BaseModel.CreatedAt,
 			&article.BaseModel.UpdatedAt,
 			&article.Category.ID,
@@ -72,32 +92,44 @@ func getArticles(status ArticleStatus, pagination Pagination) ([]Article, error)
 	return articles, nil
 }
 
-func GetPublishedArticles(pagination Pagination) ([]Article, error) {
-	return getArticles(StatusPublished, pagination)
-}
-
-func GetDrafts(pagination Pagination) ([]Article, error) {
-	return getArticles(StatusDraft, pagination)
-}
-
-// getCategoryArticles 获取某个分类下的所有内容
-func getCategoryArticles(categoryID uint64, status ArticleStatus, pagination Pagination) ([]Article, error) {
+// GetCategoryArticles 获取某个分类下某个状态的文章
+func GetCategoryArticles(categoryID uint64, status ArticleStatus, pagination Pagination) ([]Article, error) {
 	var articles []Article
 	start := (pagination.Page - 1) * pagination.PerPage
-	if err := pgxscan.Select(
-		ctx,
-		db,
-		&articles,
-		`SELECT id, category_id, title, content, created_at, updated_at
-		FROM article
-		WHERE category_id = $1 AND status = $2
-		ORDER BY id DESC LIMIT $3 OFFSET $4
-		`,
-		categoryID,
-		status,
-		pagination.PerPage,
-		start,
-	); err != nil {
+	var err error
+
+	if status == StatusAll {
+		pgxscan.Select(
+			ctx,
+			db,
+			&articles,
+			`SELECT id, category_id, title, content, created_at, updated_at
+			FROM article
+			WHERE category_id = $1
+			ORDER BY id DESC LIMIT $2 OFFSET $3
+			`,
+			categoryID,
+			pagination.PerPage,
+			start,
+		)
+	} else {
+		pgxscan.Select(
+			ctx,
+			db,
+			&articles,
+			`SELECT id, category_id, title, content, created_at, updated_at
+			FROM article
+			WHERE category_id = $1 AND status = $2
+			ORDER BY id DESC LIMIT $3 OFFSET $4
+			`,
+			categoryID,
+			status,
+			pagination.PerPage,
+			start,
+		)
+	}
+
+	if err != nil {
 		return nil, err
 	}
 
@@ -109,11 +141,6 @@ func getCategoryArticles(categoryID uint64, status ArticleStatus, pagination Pag
 		articles[i].Category = category
 	}
 	return articles, nil
-}
-
-// 获取某个分类下的所有文章
-func GetCategoryPublishedArticles(categoryID uint64, pagination Pagination) ([]Article, error) {
-	return getCategoryArticles(categoryID, StatusPublished, pagination)
 }
 
 func getStatusArticle(articleID uint64, status ArticleStatus) (Article, error) {
@@ -183,9 +210,43 @@ func UpdateArticle(article Article) (pgconn.CommandTag, error) {
 	)
 }
 
-func ArticlesCount() (uint64, error) {
+func GetArticlesCount(categoryID uint64, status ArticleStatus) (uint64, error) {
 	var count uint64
-	err := pgxscan.Get(ctx, db, &count, "SELECT COUNT(*) FROM article WHERE status = $1", StatusPublished)
+	var err error
+	switch {
+	case categoryID != 0 && status != StatusAll:
+		err = pgxscan.Get(
+			ctx,
+			db,
+			&count,
+			"SELECT COUNT(*) FROM article WHERE category_id = $1 AND status = $2",
+			categoryID,
+			status,
+		)
+	case categoryID != 0:
+		err = pgxscan.Get(
+			ctx,
+			db,
+			&count,
+			"SELECT COUNT(*) FROM article WHERE category_id = $1",
+			categoryID,
+		)
+	case status != StatusAll:
+		err = pgxscan.Get(
+			ctx,
+			db,
+			&count,
+			"SELECT COUNT(*) FROM article WHERE status = $1",
+			status,
+		)
+	default:
+		err = pgxscan.Get(
+			ctx,
+			db,
+			&count,
+			"SELECT COUNT(*) FROM article",
+		)
+	}
 	return count, err
 }
 

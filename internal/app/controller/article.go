@@ -5,10 +5,13 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/YanxinTang/blog-server/internal/app/service"
 	"github.com/YanxinTang/blog-server/internal/pkg/e"
+	"github.com/YanxinTang/blog-server/internal/pkg/log"
 	"github.com/YanxinTang/blog-server/internal/pkg/model"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 )
 
 const PerPage uint64 = 10
@@ -29,7 +32,7 @@ func GetArticles(c *gin.Context) {
 		return
 	}
 	var err error
-	pagination.Total, err = model.ArticlesCount()
+	pagination.Total, err = model.GetArticlesCount(0, model.StatusPublished)
 	if err != nil {
 		c.Error(err)
 		return
@@ -39,7 +42,7 @@ func GetArticles(c *gin.Context) {
 		return
 	}
 
-	articles, err := model.GetPublishedArticles(pagination)
+	articles, err := service.GetPublishedArticles(pagination)
 	if err != nil {
 		c.Error(e.ERROR_RESOURCE_NOT_FOUND)
 		return
@@ -78,7 +81,7 @@ func GetCategoryArticles(c *gin.Context) {
 		return
 	}
 
-	articles, err := model.GetCategoryPublishedArticles(categoryID, pagination)
+	articles, err := service.GetCategoryPublishedArticles(categoryID, pagination)
 	if err != nil {
 		c.Error(err)
 		return
@@ -183,12 +186,12 @@ func GetDrafts(c *gin.Context) {
 		return
 	}
 
-	drafts, err := model.GetDrafts(pagination)
+	drafts, err := service.GetDrafts(pagination)
 	if err != nil {
 		c.Error(err)
 		return
 	}
-	pagination.Total, err = model.ArticlesCount()
+	pagination.Total, err = model.GetArticlesCount(0, model.StatusDraft)
 	if err != nil {
 		c.Error(err)
 		return
@@ -300,4 +303,46 @@ func DeleteComment(c *gin.Context) {
 	session.AddFlash("删除成功", "successMsgs")
 	session.Save()
 	c.Redirect(http.StatusFound, fmt.Sprintf("/articles/%d", articleID))
+}
+
+type ProtectedGetArticlesQuery struct {
+	CategoryID uint64              `form:"categoryID"`
+	Status     model.ArticleStatus `form:"status,default=-1"`
+}
+
+// ProtectedGetArticles 获取所有的文章
+func ProtectedGetArticles(c *gin.Context) {
+	var protectedGetArticlesQuery ProtectedGetArticlesQuery
+	if err := c.BindQuery(&protectedGetArticlesQuery); err != nil {
+		c.Error(err)
+		return
+	}
+	pagination := model.NewPagination()
+	if err := c.BindQuery(&pagination); err != nil {
+		return
+	}
+	var err error
+	pagination.Total, err = model.GetArticlesCount(protectedGetArticlesQuery.CategoryID, model.ArticleStatus(protectedGetArticlesQuery.Status))
+	if err != nil {
+		c.Error(err)
+		return
+	}
+	log.Debug("get articles count", zap.Uint64("categoryID", protectedGetArticlesQuery.CategoryID), zap.Int("status", int(protectedGetArticlesQuery.Status)))
+	if !pagination.IsValid() {
+		log.Warn("pagination is invalid", zap.Uint64("Page", pagination.Page), zap.Uint64("PerPage", pagination.PerPage), zap.Uint64("Total", pagination.Total))
+		c.Error(e.ERROR_RESOURCE_NOT_FOUND)
+		return
+	}
+
+	articles, err := service.GetArticles(protectedGetArticlesQuery.CategoryID, protectedGetArticlesQuery.Status, pagination)
+	if err != nil {
+		log.Warn("failed to get articles", zap.Error(err))
+		c.Error(e.ERROR_RESOURCE_NOT_FOUND)
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"articles":   articles,
+		"pagination": pagination,
+	})
 }
