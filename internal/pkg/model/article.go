@@ -9,16 +9,18 @@ import (
 )
 
 const (
-	StatusPublished = true
-	StatusDraft     = false
+	StatusPublished = iota
+	StatusDraft     = iota
 )
+
+type ArticleStatus int
 
 type Article struct {
 	BaseModel
-	CategoryID uint64 `json:"categoryID" db:"category_id" binding:"required"`
-	Title      string `json:"title" db:"title" binding:"required"`
-	Content    string `json:"content" db:"content" binding:"required"`
-	Status     bool   `json:"status" db:"status"`
+	CategoryID uint64        `json:"categoryID" db:"category_id" binding:"required"`
+	Title      string        `json:"title" db:"title" binding:"required"`
+	Content    string        `json:"content" db:"content" binding:"required"`
+	Status     ArticleStatus `json:"status" db:"status"`
 
 	Category Category `json:"category" binding:"-"`
 }
@@ -27,7 +29,7 @@ func (a *Article) Summary() string {
 	return utils.Summary(a.Content)
 }
 
-func getArticles(status bool, pagination Pagination) ([]Article, error) {
+func getArticles(status ArticleStatus, pagination Pagination) ([]Article, error) {
 	start := (pagination.Page - 1) * pagination.PerPage
 	rows, err := db.Query(
 		ctx,
@@ -79,7 +81,7 @@ func GetDrafts(pagination Pagination) ([]Article, error) {
 }
 
 // getCategoryArticles 获取某个分类下的所有内容
-func getCategoryArticles(categoryID uint64, status bool, pagination Pagination) ([]Article, error) {
+func getCategoryArticles(categoryID uint64, status ArticleStatus, pagination Pagination) ([]Article, error) {
 	var articles []Article
 	start := (pagination.Page - 1) * pagination.PerPage
 	if err := pgxscan.Select(
@@ -114,7 +116,7 @@ func GetCategoryPublishedArticles(categoryID uint64, pagination Pagination) ([]A
 	return getCategoryArticles(categoryID, StatusPublished, pagination)
 }
 
-func getStatusArticle(articleID uint64, status bool) (Article, error) {
+func getStatusArticle(articleID uint64, status ArticleStatus) (Article, error) {
 	row := db.QueryRow(
 		ctx,
 		`SELECT a.id, a.category_id, a.title, a.content, a.created_at, a.updated_at, c.id, c.name, c.created_at, c.updated_at 

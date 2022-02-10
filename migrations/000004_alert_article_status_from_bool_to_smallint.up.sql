@@ -1,0 +1,6 @@
+ALTER TABLE "article"
+ALTER "status" TYPE SMALLINT
+USING
+CASE
+WHEN "status"=TRUE THEN 0 ELSE 1
+END;
