@@ -4,6 +4,7 @@ import "net/http"
 
 var (
 	ERROR_INTERVAL_ERROR     = New(http.StatusInternalServerError, "服务器内部错误")
+	ERROR_BAD_REQUEST        = New(http.StatusBadRequest, "异常请求")
 	ERROR_RESOURCE_NOT_FOUND = New(http.StatusNotFound, "资源未找到")
 	ERROR_BEGIN_TX           = New(http.StatusInternalServerError, "创建事务失败")
 	ERROR_COMMIT_TX          = New(http.StatusInternalServerError, "提交事务失败")

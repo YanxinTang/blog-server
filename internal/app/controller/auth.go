@@ -3,6 +3,8 @@ package controller
 import (
 	"net/http"
 
+	"github.com/YanxinTang/blog-server/ent"
+	"github.com/YanxinTang/blog-server/internal/app/common"
 	"github.com/YanxinTang/blog-server/internal/app/service"
 	"github.com/YanxinTang/blog-server/internal/pkg/e"
 	"github.com/YanxinTang/blog-server/internal/pkg/model"
@@ -10,22 +12,22 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-type apiSignupModel struct {
+type SignupReqBody struct {
 	Username string `json:"username" binding:"required"`
 	Password string `json:"password" binding:"required"`
 	Email    string `json:"email" binding:"required"`
 }
 
 func Signup(c *gin.Context) {
-	var apiSignup apiSignupModel
-	if err := c.Bind(&apiSignup); err != nil {
+	var signupReqBody SignupReqBody
+	if err := c.Bind(&signupReqBody); err != nil {
 		return
 	}
 
-	user := model.User{
-		Username:    apiSignup.Username,
-		Email:       apiSignup.Email,
-		RawPassword: apiSignup.Password,
+	user := ent.User{
+		Username: signupReqBody.Username,
+		Email:    signupReqBody.Email,
+		Password: signupReqBody.Password,
 	}
 
 	if err := service.InitUserAndSetting(user); err != nil {
@@ -36,20 +38,19 @@ func Signup(c *gin.Context) {
 	c.Status(http.StatusOK)
 }
 
-type apiSigninModel struct {
+type SigninReqBody struct {
 	Username string `json:"username" form:"username" binding:"required"`
 	Password string `json:"password" form:"password" binding:"required"`
 	Remember bool   `json:"remember" form:"remember"`
 }
 
 func Signin(c *gin.Context) {
-	var apiSignin apiSigninModel
-	if err := c.ShouldBind(&apiSignin); err != nil {
-		c.Error(e.ERROR_EMPTY_ARGUMENTS)
+	var signinReqBody SigninReqBody
+	if err := c.BindJSON(&signinReqBody); err != nil {
 		return
 	}
 
-	user, err := model.Authentication(apiSignin.Username, apiSignin.Password)
+	user, err := model.Authentication(common.Context, common.Client)(signinReqBody.Username, signinReqBody.Password)
 	if err != nil {
 		c.Error(e.ERROR_INVALID_AUTH)
 		return
@@ -59,11 +60,11 @@ func Signin(c *gin.Context) {
 	session.Set("login", true)
 	session.Set("userID", user.ID)
 	session.Set("user", user)
-	if !apiSignin.Remember {
+	if !signinReqBody.Remember {
 		session.Options(sessions.Options{Path: "/"})
 	}
 	session.Save()
-	c.Status(http.StatusOK)
+	c.JSON(http.StatusOK, user)
 }
 
 func Signout(c *gin.Context) {

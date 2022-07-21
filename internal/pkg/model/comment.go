@@ -1,48 +1,102 @@
 package model
 
 import (
-	"github.com/georgysavva/scany/pgxscan"
-	"github.com/jackc/pgconn"
+	"context"
+
+	"github.com/YanxinTang/blog-server/ent"
+	"github.com/YanxinTang/blog-server/ent/article"
+	"github.com/YanxinTang/blog-server/ent/comment"
+	"github.com/YanxinTang/blog-server/internal/pkg/log"
+	"github.com/YanxinTang/blog-server/internal/pkg/page"
+	"github.com/pkg/errors"
+	"go.uber.org/zap"
 )
 
-type Comment struct {
-	BaseModel
-	ArticleID uint64 `db:"article_id" json:"articleID"`
-	ParentID  uint64 `db:"parent_id" json:"parentID"`
-	Username  string `db:"username" json:"username"`
-	Content   string `db:"content" json:"content" binding:"required"`
+type CreateCommentInput struct {
+	ArticleID int
+	ParentID  int
+	Username  string
+	Content   string
 }
 
-func CreateComment(comment Comment) (Comment, error) {
-	err := pgxscan.Get(
-		ctx, db, &comment,
-		"INSERT INTO comment (article_id, username, content) VALUES ($1, $2, $3) RETURNING *",
-		comment.ArticleID,
-		comment.Username,
-		comment.Content,
-	)
-	return comment, err
+func CreateComment(ctx context.Context, client *ent.Client) func(CreateCommentInput) (*ent.Comment, error) {
+	return func(input CreateCommentInput) (*ent.Comment, error) {
+		exec := client.Comment.
+			Create().
+			SetArticleID(input.ArticleID).
+			SetUsername(input.Username).
+			SetContent(input.Content)
+		if input.ParentID > 0 {
+			exec = exec.SetParentID(input.ParentID)
+		}
+		c, err := exec.Save(ctx)
+		if err != nil {
+			log.Warn("failing creating comment", zap.Error(err))
+			return nil, err
+		}
+		return c, nil
+	}
 }
 
-func DeleteComment(commentID uint64) (pgconn.CommandTag, error) {
-	return db.Exec(ctx, "DELETE FROM comment WHERE id = $1", commentID)
+func DeleteComment(ctx context.Context, client *ent.Client) func(id int) error {
+	return func(id int) error {
+		err := client.Comment.DeleteOneID(id).Exec(ctx)
+		if err != nil {
+			return errors.Wrapf(err, "failing deleting comment[%d]", id)
+		}
+		return nil
+	}
 }
 
-func GetArticleComments(articleID uint64) ([]Comment, error) {
-	comments := []Comment{}
-	err := pgxscan.Select(
-		ctx,
-		db,
-		&comments,
-		"SELECT * FROM comment WHERE article_id = $1",
-		articleID,
-	)
-	return comments, err
+func DeleteArticleComments(ctx context.Context, client *ent.Client) func(articleID int) error {
+	return func(articleID int) error {
+		n, err := client.Comment.Delete().Where(comment.HasArticleWith(article.ID(articleID))).Exec(ctx)
+		if err != nil {
+			log.Warn("failing deleting comments of article", zap.Int("articleID", articleID), zap.Error(err))
+			return err
+		}
+		log.Info("delete comments of articles", zap.Int("count", n))
+		return nil
+	}
 }
 
-// CommentsCount returns count of comment
-func CommentsCount() (uint64, error) {
-	var count uint64
-	err := pgxscan.Get(ctx, db, &count, "SELECT COUNT(*) FROM comment")
-	return count, err
+func GetComment(ctx context.Context, client *ent.Client) func(id int) (*ent.Comment, error) {
+	return func(id int) (*ent.Comment, error) {
+		c, err := client.Comment.Get(ctx, id)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failing getting comment[%d]", id)
+		}
+		return c, nil
+	}
+}
+
+func GetArticleComments(ctx context.Context, client *ent.Client) func(articleID int, status ArticleStatus, p *page.Pagination) ([]*ent.Comment, *page.Pagination, error) {
+	return func(articleID int, status ArticleStatus, p *page.Pagination) ([]*ent.Comment, *page.Pagination, error) {
+		query := client.Comment.Query().Where(comment.HasArticleWith(article.ID(articleID)))
+		comments, err := query.Clone().
+			Order(ent.Asc(comment.FieldID)).
+			Offset(p.Offset()).Limit(p.Limit()).
+			All(ctx)
+		if err != nil {
+			log.Warn("failing getting comments of article", zap.Int("articleID", articleID), zap.Int8("status", int8(status)), zap.Error(err))
+			return nil, nil, err
+		}
+		total, err := query.Clone().Count(ctx)
+		if err != nil {
+			log.Warn("failing getting comments count of article", zap.Int("articleID", articleID), zap.Int8("status", int8(status)), zap.Error(err))
+			return nil, nil, err
+		}
+		p.Total = total
+		return comments, p, nil
+	}
+}
+
+func CommentsCount(ctx context.Context, client *ent.Client) func() (int, error) {
+	return func() (int, error) {
+		count, err := client.Comment.Query().Count(ctx)
+		if err != nil {
+			return 0, errors.Wrap(err, "failing getting count of comment")
+		}
+		return count, nil
+	}
 }

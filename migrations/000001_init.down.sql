@@ -1,6 +1,0 @@
-DROP TABLE IF EXISTS "comment";
-DROP TABLE IF EXISTS "article";
-DROP TABLE IF EXISTS "category";
-DROP TABLE IF EXISTS "user";
-DROP TABLE IF EXISTS "setting";
-DROP FUNCTION IF EXISTS set_updated_at;

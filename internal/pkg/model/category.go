@@ -1,47 +1,82 @@
 package model
 
 import (
-	"github.com/georgysavva/scany/pgxscan"
+	"context"
+
+	"github.com/YanxinTang/blog-server/ent"
+	"github.com/pkg/errors"
 )
 
-type Category struct {
-	BaseModel
-	Name string `json:"name" db:"name" binding:"required"`
+var CategoryNil = 0
+
+func CreateCategory(ctx context.Context, client *ent.Client) func(name string) (*ent.Category, error) {
+	return func(name string) (*ent.Category, error) {
+		c, err := client.Category.
+			Create().
+			SetName(name).
+			Save(ctx)
+		if err != nil {
+			return nil, errors.Wrap(err, "failing creating category")
+		}
+		return c, nil
+	}
 }
 
-func GetCategory(ID uint64) (Category, error) {
-	var category Category
-	err := pgxscan.Get(ctx, db, &category, "SELECT id, name, created_at, updated_at FROM category WHERE id = $1", ID)
-	return category, err
+func DeleteCategory(ctx context.Context, client *ent.Client) func(id int) error {
+	return func(id int) error {
+		err := client.Category.DeleteOneID(id).Exec(ctx)
+		if err != nil {
+			return errors.Wrapf(err, "failing deleting categoy[%d]", id)
+		}
+		return nil
+	}
 }
 
-func CreateCategory(userID uint64, category Category) (Category, error) {
-	err := pgxscan.Get(
-		ctx, db, &category,
-		"INSERT INTO category (name) VALUES ($1) RETURNING *",
-		category.Name,
-	)
-	return category, err
+type UpdateCategoryInput struct {
+	ID   int
+	Name string
 }
 
-func GetCategories() ([]Category, error) {
-	categories := []Category{}
-	err := pgxscan.Select(ctx, db, &categories, "SELECT * FROM category")
-	return categories, err
+func UpdateCategory(ctx context.Context, client *ent.Client) func(UpdateCategoryInput) (*ent.Category, error) {
+	return func(updateCategoryInput UpdateCategoryInput) (*ent.Category, error) {
+		update := client.Category.UpdateOneID(updateCategoryInput.ID)
+		if updateCategoryInput.Name != "" {
+			update.SetName(updateCategoryInput.Name)
+		}
+		c, err := update.Save(ctx)
+		if err != nil {
+			return nil, errors.Wrap(err, "failing updating category")
+		}
+		return c, nil
+	}
 }
 
-func UpdateCategory(category Category) error {
-	_, err := db.Exec(ctx, "UPDATE category SET name = $1 WHERE id = $2", category.Name, category.ID)
-	return err
+func GetCategory(ctx context.Context, client *ent.Client) func(id int) (*ent.Category, error) {
+	return func(id int) (*ent.Category, error) {
+		c, err := client.Category.Get(ctx, id)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failing getting category[%d]", id)
+		}
+		return c, nil
+	}
 }
 
-func DeleteCategory(categoryID uint64) error {
-	_, err := db.Exec(ctx, "DELETE FROM category WHERE id = $1", categoryID)
-	return err
+func GetCategories(ctx context.Context, client *ent.Client) func() ([]*ent.Category, error) {
+	return func() ([]*ent.Category, error) {
+		categories, err := client.Category.Query().All(ctx)
+		if err != nil {
+			return nil, errors.Wrap(err, "failing getting all categories")
+		}
+		return categories, nil
+	}
 }
 
-func CategoriesCount() (uint64, error) {
-	var count uint64
-	err := pgxscan.Get(ctx, db, &count, "SELECT COUNT(*) FROM category")
-	return count, err
+func CategoriesCount(ctx context.Context, client *ent.Client) func() (int, error) {
+	return func() (int, error) {
+		count, err := client.Category.Query().Count(ctx)
+		if err != nil {
+			return 0, errors.Wrap(err, "failing getting count of category")
+		}
+		return count, nil
+	}
 }

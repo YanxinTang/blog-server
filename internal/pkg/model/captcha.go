@@ -1,48 +1,55 @@
 package model
 
 import (
+	"context"
 	"time"
 
-	"github.com/georgysavva/scany/pgxscan"
+	"github.com/YanxinTang/blog-server/ent"
+	"github.com/YanxinTang/blog-server/ent/captcha"
+	"github.com/google/uuid"
+	"github.com/pkg/errors"
 )
 
-type Captcha struct {
-	BaseModel
-	Key  string `db:"key"`
-	Text string `db:"text"`
+func CreateCaptcha(ctx context.Context, client *ent.Client) func(text string) (*ent.Captcha, error) {
+	return func(text string) (*ent.Captcha, error) {
+		c, err := client.Captcha.Create().SetText(text).Save(ctx)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failint creating captcha[%s]", text)
+		}
+		return c, nil
+	}
 }
 
-func CreateCaptcha(captcha Captcha) (Captcha, error) {
-	err := pgxscan.Get(
-		ctx, db, &captcha,
-		"INSERT INTO captcha (key, text) VALUES ($1, $2) RETURNING id, created_at, updated_at, key, text",
-		captcha.Key,
-		captcha.Text,
-	)
-	return captcha, err
+func GetCaptchaByKey(ctx context.Context, client *ent.Client) func(key uuid.UUID) (*ent.Captcha, error) {
+	return func(key uuid.UUID) (*ent.Captcha, error) {
+		c, err := client.Captcha.
+			Query().
+			Where(captcha.Key(key)).
+			Where(captcha.ExpiredTimeGTE(time.Now())).
+			Only(ctx)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failing getting captcha[%s]", key.String())
+		}
+		return c, nil
+	}
 }
 
-func GetCaptchaByKey(key string, expiration time.Duration) (Captcha, error) {
-	expiredat := time.Now().Add(-expiration)
-	var captcha Captcha
-	err := pgxscan.Get(
-		ctx,
-		db,
-		&captcha,
-		"SELECT id, key, text, created_at, updated_at FROM captcha WHERE key = $1 AND created_at > $2",
-		key,
-		expiredat,
-	)
-	return captcha, err
+func DeleteCapachaByKey(ctx context.Context, client *ent.Client) func(key uuid.UUID) error {
+	return func(key uuid.UUID) error {
+		_, err := client.Captcha.Delete().Where(captcha.Key(key)).Exec(ctx)
+		if err != nil {
+			return errors.Wrapf(err, "failing deleting captcha[%s]", key)
+		}
+		return nil
+	}
 }
 
-func DeleteCapachaByKey(key string) error {
-	_, err := db.Exec(ctx, "DELETE FROM captcha WHERE key = $1", key)
-	return err
-}
-
-func DeleteExpiredCaptcha(expiration time.Duration) error {
-	expiredat := time.Now().Add(-expiration)
-	_, err := db.Exec(ctx, "DELETE FROM captcha WHERE created_at < $1", expiredat)
-	return err
+func DeleteExpiredCaptcha(ctx context.Context, client *ent.Client) func() error {
+	return func() error {
+		_, err := client.Captcha.Delete().Where(captcha.ExpiredTimeLT(time.Now())).Exec(ctx)
+		if err != nil {
+			return errors.Wrapf(err, "failing deleting expired captchas")
+		}
+		return nil
+	}
 }

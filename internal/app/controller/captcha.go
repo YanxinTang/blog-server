@@ -29,7 +29,7 @@ func GetCapacha(c *gin.Context) {
 	})
 }
 
-type VerifyCaptchaReq struct {
+type VerifyCaptchaReqBody struct {
 	Key  string `json:"captchaKey" binding:"required"`
 	Text string `json:"captchaText" binding:"required"`
 }

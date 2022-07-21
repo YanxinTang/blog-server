@@ -130,7 +130,8 @@ type Logger struct {
 	level Level
 }
 
-var std = NewEnv(os.Getenv("APP_ENV"))
+// var std = NewEnv(os.Getenv("APP_ENV"))
+var std = NewEnv("development")
 
 func Default() *Logger {
 	return std

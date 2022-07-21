@@ -2,49 +2,50 @@ package controller
 
 import (
 	"net/http"
-	"strconv"
 
+	"github.com/YanxinTang/blog-server/internal/app/common"
 	"github.com/YanxinTang/blog-server/internal/app/service"
+	"github.com/YanxinTang/blog-server/internal/pkg/e"
 	"github.com/YanxinTang/blog-server/internal/pkg/model"
 	"github.com/gin-gonic/gin"
 )
 
 type Pair struct {
 	Name  string `json:"name"`
-	Value string `json:"value"`
+	Value int    `json:"value"`
 }
 
 func Overview(c *gin.Context) {
-	articlesCount, err := model.GetArticlesCount(0, model.StatusAll)
+	articlesCount, err := model.ArticlesCount(common.Context, common.Client)()
 	if err != nil {
-		c.Error(err)
+		c.Error(e.New(http.StatusInternalServerError, "获取文章数量失败"))
 		return
 	}
 
-	categoriesCount, err := model.CategoriesCount()
+	categoriesCount, err := model.CategoriesCount(common.Context, common.Client)()
 	if err != nil {
-		c.Error(err)
+		c.Error(e.New(http.StatusInternalServerError, "获取分类数量失败"))
 		return
 	}
 
-	commentsCount, err := model.CommentsCount()
+	commentsCount, err := model.CommentsCount(common.Context, common.Client)()
 	if err != nil {
-		c.Error(err)
+		c.Error(e.New(http.StatusInternalServerError, "获取评论数量失败"))
 		return
 	}
 
 	pairs := make([]Pair, 0, 3)
 	pairs = append(
 		pairs,
-		Pair{"分类数量", strconv.FormatUint(categoriesCount, 10)},
-		Pair{"文章数量", strconv.FormatUint(articlesCount, 10)},
-		Pair{"评论数量", strconv.FormatUint(commentsCount, 10)},
+		Pair{"分类数量", categoriesCount},
+		Pair{"文章数量", articlesCount},
+		Pair{"评论数量", commentsCount},
 	)
 	c.JSON(http.StatusOK, pairs)
 }
 
 type StorageOverviewItem struct {
-	ID       uint64 `json:"id"`
+	ID       int    `json:"id"`
 	Name     string `json:"name"`
 	Usage    int64  `json:"usage"`
 	Capacity int64  `json:"capacity"`

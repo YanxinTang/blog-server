@@ -8,13 +8,11 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/YanxinTang/blog-server/ent"
 	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-contrib/sessions/postgres"
-	"github.com/golang-migrate/migrate/v4"
-	"github.com/golang-migrate/migrate/v4/database/pgx"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/jackc/pgx/v4/pgxpool"
-	"github.com/jackc/pgx/v4/stdlib"
 	"gopkg.in/yaml.v2"
 )
 
@@ -55,6 +53,18 @@ func ParseConfig() (*Config, error) {
 	return &config, err
 }
 
+func GetEntClient(conf *Config) (*ent.Client, error) {
+	connection := fmt.Sprintf(
+		"host=%s port=%s user=%s dbname=%s password=%s sslmode=disable",
+		conf.Postgres.Host,
+		conf.Postgres.Port,
+		conf.Postgres.User,
+		conf.Postgres.Database,
+		conf.Postgres.Password,
+	)
+	return ent.Open("postgres", connection)
+}
+
 func GetDBConnectionPool(postgreConfig PostgresConfig) (*pgxpool.Pool, error) {
 	dbURL := fmt.Sprintf(
 		"postgres://%s:%s@%s:%s/%s",
@@ -74,16 +84,7 @@ func GetDBConnectionPool(postgreConfig PostgresConfig) (*pgxpool.Pool, error) {
 	return pgxpool.ConnectConfig(context.Background(), config)
 }
 
-func GetDBMigrate(pool *pgxpool.Pool) (*migrate.Migrate, error) {
-	db := stdlib.OpenDB(*pool.Config().ConnConfig)
-	driver, err := pgx.WithInstance(db, &pgx.Config{})
-	if err != nil {
-		return nil, err
-	}
-	return migrate.NewWithDatabaseInstance("file://migrations", "pgx", driver)
-}
-
-func GetCookieStore(conf Config) (cookie.Store, error) {
+func GetCookieStore(conf *Config) (cookie.Store, error) {
 	dbURL := fmt.Sprintf(
 		"postgres://%s:%s@%s:%s/%s?sslmode=disable",
 		conf.Postgres.User,
@@ -109,12 +110,4 @@ func GetDefaultConnectionPool() (*pgxpool.Pool, error) {
 		return nil, err
 	}
 	return GetDBConnectionPool(configuration.Postgres)
-}
-
-func GetDefaultMigrate() (*migrate.Migrate, error) {
-	pool, err := GetDefaultConnectionPool()
-	if err != nil {
-		return nil, err
-	}
-	return GetDBMigrate(pool)
 }

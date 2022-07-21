@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/YanxinTang/blog-server/internal/app/common"
 	"github.com/YanxinTang/blog-server/internal/app/service"
 	"github.com/YanxinTang/blog-server/internal/pkg/e"
 	"github.com/YanxinTang/blog-server/internal/pkg/log"
@@ -15,29 +16,6 @@ import (
 	"go.uber.org/zap"
 )
 
-func GetStorages(c *gin.Context) {
-	storages, err := model.GetStorages()
-	if err != nil {
-		log.Error("failed to get storages", zap.Error(err))
-		c.Error(e.New(http.StatusBadRequest, "存储列表获取失败"))
-		return
-	}
-	c.JSON(http.StatusOK, storages)
-}
-
-func GetStorage(c *gin.Context) {
-	storageID, err := strconv.ParseUint(c.Param("storageID"), 10, 64)
-	if err != nil {
-		c.Error(e.New(http.StatusBadRequest, "ID 应该是整数"))
-		return
-	}
-	storage, err := model.GetStorage(storageID)
-	if err != nil {
-		c.Error(e.New(http.StatusBadRequest, "存储信息获取失败"))
-	}
-	c.JSON(http.StatusOK, storage)
-}
-
 // cover writer to writerat
 type FakerWriteAt struct {
 	w io.Writer
@@ -47,38 +25,7 @@ func (w *FakerWriteAt) WriteAt(p []byte, off int64) (n int, err error) {
 	return w.w.Write(p)
 }
 
-func GetStorageObject(c *gin.Context) {
-	storageID, err := strconv.ParseUint(c.Param("storageID"), 10, 64)
-	if err != nil {
-		c.Error(e.New(http.StatusBadRequest, "ID 应该是整数"))
-		return
-	}
-	d, apierr := service.GetStorageDownloader(storageID)
-	if apierr != nil {
-		c.Error(apierr)
-		return
-	}
-	key := c.Param("key")
-	getObjectInput := s3.GetObjectInput{
-		Bucket: aws.String(d.Storage.Bucket),
-		Key:    aws.String(key),
-	}
-	writerAt := FakerWriteAt{c.Writer}
-	defer (func() {
-		_, err := d.Downloader.Download(&writerAt, &getObjectInput)
-		if err != nil {
-			log.Warn(
-				"failed to download",
-				zap.Uint64("storageID", storageID),
-				zap.String("key", key),
-				zap.Error(err),
-			)
-		}
-	})()
-	c.Status(http.StatusOK)
-}
-
-type createStorageBody struct {
+type CreateStorageReqBody struct {
 	Name      string `json:"name" binding:"required"`
 	SecretID  string `json:"secretID" binding:"required"`
 	SecretKey string `json:"secretKey" binding:"required"`
@@ -90,20 +37,22 @@ type createStorageBody struct {
 }
 
 func CreateStorage(c *gin.Context) {
-	var body createStorageBody
+	var body CreateStorageReqBody
 	if err := c.BindJSON(&body); err != nil {
 		return
 	}
-	var storage model.Storage
-	storage.Name = body.Name
-	storage.SecretID = body.SecretID
-	storage.SecretKey = body.SecretKey
-	storage.Token = body.Token
-	storage.Region = body.Region
-	storage.Endpoint = body.Endpoint
-	storage.Bucket = body.Bucket
 
-	storage, err := model.CreateStorage(storage)
+	csi := model.CreateStorageInput{
+		Name:      body.Name,
+		SecretID:  body.SecretID,
+		SecretKey: body.SecretKey,
+		Token:     body.Token,
+		Region:    body.Region,
+		Endpoint:  body.Endpoint,
+		Bucket:    body.Bucket,
+	}
+
+	storage, err := model.CreateStorage(common.Context, common.Client)(csi)
 	if err != nil {
 		c.Error(e.New(http.StatusBadRequest, "存储创建失败"))
 		return
@@ -112,7 +61,7 @@ func CreateStorage(c *gin.Context) {
 	c.JSON(http.StatusOK, storage)
 }
 
-type updateStorageBody struct {
+type UpdateStorageReqBody struct {
 	Name      string `json:"name" binding:"required"`
 	SecretID  string `json:"secretID" binding:"required"`
 	SecretKey string `json:"secretKey" binding:"required"`
@@ -124,43 +73,43 @@ type updateStorageBody struct {
 }
 
 func UpdateStorage(c *gin.Context) {
-	storageID, err := strconv.ParseUint(c.Param("storageID"), 10, 64)
+	storageID, err := strconv.Atoi(c.Param("storageID"))
 	if err != nil {
 		c.Error(e.New(http.StatusBadRequest, "ID 应该是整数"))
 		return
 	}
 
-	var body updateStorageBody
+	var body UpdateStorageReqBody
 	if err := c.BindJSON(&body); err != nil {
 		return
 	}
 
-	var storage model.Storage
-	storage.ID = storageID
-	storage.Name = body.Name
-	storage.SecretID = body.SecretID
-	storage.SecretKey = body.SecretKey
-	storage.Token = body.Token
-	storage.Region = body.Region
-	storage.Endpoint = body.Endpoint
-	storage.Bucket = body.Bucket
-	storage.Capacity = body.Capacity
+	var usi model.UpdateStorageInput
+	usi.ID = storageID
+	usi.Name = body.Name
+	usi.SecretID = body.SecretID
+	usi.SecretKey = body.SecretKey
+	usi.Token = body.Token
+	usi.Region = body.Region
+	usi.Endpoint = body.Endpoint
+	usi.Bucket = body.Bucket
+	usi.Capacity = body.Capacity
 
-	err = model.UpdateStorage(storage)
+	s, err := model.UpdateStorage(common.Context, common.Client)(usi)
 	if err != nil {
 		c.Error(e.New(http.StatusNotFound, "找不到此存储"))
 		return
 	}
-	c.JSON(http.StatusOK, storage)
+	c.JSON(http.StatusOK, s)
 }
 
 func DeleteStorage(c *gin.Context) {
-	storageID, err := strconv.ParseUint(c.Param("storageID"), 10, 64)
+	storageID, err := strconv.Atoi(c.Param("storageID"))
 	if err != nil {
-		c.Error(e.New(http.StatusBadRequest, "ID 应该是整数"))
+		c.Error(e.ERROR_BAD_REQUEST)
 		return
 	}
-	err = model.DeleteStorage(storageID)
+	err = model.DeleteStorage(common.Context, common.Client)(storageID)
 	if err != nil {
 		c.Error(e.New(http.StatusNotFound, "找不到此存储"))
 		return
@@ -169,7 +118,7 @@ func DeleteStorage(c *gin.Context) {
 }
 
 func GetStorageObjects(c *gin.Context) {
-	storageID, err := strconv.ParseUint(c.Param("storageID"), 10, 64)
+	storageID, err := strconv.Atoi(c.Param("storageID"))
 	if err != nil {
 		c.Error(e.New(http.StatusNotFound, "找不到对存储库"))
 		return
@@ -197,7 +146,7 @@ type DeleteStorageObjectQuery struct {
 }
 
 func PutStorageObject(c *gin.Context) {
-	storageID, err := strconv.ParseUint(c.Param("storageID"), 10, 64)
+	storageID, err := strconv.Atoi(c.Param("storageID"))
 	if err != nil {
 		c.Error(e.New(http.StatusNotFound, "找不到对存储库"))
 		return
@@ -228,7 +177,7 @@ func PutStorageObject(c *gin.Context) {
 }
 
 func DeleteStorageObject(c *gin.Context) {
-	storageID, err := strconv.ParseUint(c.Param("storageID"), 10, 64)
+	storageID, err := strconv.Atoi(c.Param("storageID"))
 	if err != nil {
 		c.Error(e.New(http.StatusNotFound, "找不到对存储库"))
 		return
@@ -249,4 +198,58 @@ func DeleteStorageObject(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, deleteObjectOutput)
+}
+
+func GetStorages(c *gin.Context) {
+	storages, err := model.GetStorages(common.Context, common.Client)()
+	if err != nil {
+		log.Error("failed to get storages", zap.Error(err))
+		c.Error(e.New(http.StatusBadRequest, "存储列表获取失败"))
+		return
+	}
+	c.JSON(http.StatusOK, storages)
+}
+
+func GetStorage(c *gin.Context) {
+	storageID, err := strconv.Atoi(c.Param("storageID"))
+	if err != nil {
+		c.Error(e.New(http.StatusBadRequest, "ID 应该是整数"))
+		return
+	}
+	storage, err := model.GetStorage(common.Context, common.Client)(storageID)
+	if err != nil {
+		c.Error(e.New(http.StatusBadRequest, "存储信息获取失败"))
+	}
+	c.JSON(http.StatusOK, storage)
+}
+
+func GetStorageObject(c *gin.Context) {
+	storageID, err := strconv.Atoi(c.Param("storageID"))
+	if err != nil {
+		c.Error(e.ERROR_BAD_REQUEST)
+		return
+	}
+	d, err := service.GetStorageDownloader(storageID)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+	key := c.Param("key")
+	getObjectInput := s3.GetObjectInput{
+		Bucket: aws.String(d.Storage.Bucket),
+		Key:    aws.String(key),
+	}
+	writerAt := FakerWriteAt{c.Writer}
+	defer (func() {
+		_, err := d.Downloader.Download(&writerAt, &getObjectInput)
+		if err != nil {
+			log.Warn(
+				"failed to download",
+				zap.Int("storageID", storageID),
+				zap.String("key", key),
+				zap.Error(err),
+			)
+		}
+	})()
+	c.Status(http.StatusOK)
 }

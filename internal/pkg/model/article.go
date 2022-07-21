@@ -1,276 +1,177 @@
 package model
 
 import (
+	"context"
+
+	"github.com/YanxinTang/blog-server/ent"
+	"github.com/YanxinTang/blog-server/ent/article"
 	"github.com/YanxinTang/blog-server/internal/pkg/log"
-	"github.com/YanxinTang/blog-server/utils"
-	"github.com/georgysavva/scany/pgxscan"
-	"github.com/jackc/pgconn"
-	"github.com/jackc/pgx/v4"
+	"github.com/YanxinTang/blog-server/internal/pkg/page"
+	"github.com/pkg/errors"
 	"go.uber.org/zap"
 )
 
+type ArticleStatus int8
+
 const (
-	StatusAll       = iota - 1
-	StatusPublished = iota - 1
-	StatusDraft     = iota - 1
+	StatusNil = ArticleStatus(iota)
+	StatusPublished
+	StatusDraft
 )
 
-type ArticleStatus int
-
-type Article struct {
-	BaseModel
-	CategoryID uint64        `json:"categoryID" db:"category_id" binding:"required"`
-	Title      string        `json:"title" db:"title" binding:"required"`
-	Content    string        `json:"content" db:"content" binding:"required"`
-	Status     ArticleStatus `json:"status" db:"status"`
-
-	Category Category `json:"category" binding:"-"`
+type CreateArticleInput struct {
+	CategoryID int
+	Title      string
+	Content    string
+	Status     ArticleStatus
 }
 
-func (a *Article) Summary() string {
-	return utils.Summary(a.Content)
-}
-
-func GetArticles(status ArticleStatus, pagination Pagination) ([]Article, error) {
-	start := (pagination.Page - 1) * pagination.PerPage
-	var rows pgx.Rows
-	var err error
-
-	switch status {
-	case StatusAll:
-		rows, err = db.Query(
-			ctx,
-			`SELECT a.id, a.category_id, a.title, a.created_at, a.updated_at, c.id, c.name, c.created_at, c.updated_at 
-			FROM article as a
-			LEFT JOIN category as c
-			ON a.category_id = c.id
-			ORDER BY a.id DESC LIMIT $1 OFFSET $2
-			`,
-			pagination.PerPage,
-			start,
-		)
-	default:
-		rows, err = db.Query(
-			ctx,
-			`SELECT a.id, a.category_id, a.title, a.created_at, a.updated_at, c.id, c.name, c.created_at, c.updated_at 
-			FROM article as a
-			LEFT JOIN category as c
-			ON a.category_id = c.id
-			WHERE a.status = $1
-			ORDER BY a.id DESC LIMIT $2 OFFSET $3
-			`,
-			status,
-			pagination.PerPage,
-			start,
-		)
-	}
-
-	if err != nil {
-		return nil, err
-	}
-
-	var articles []Article = make([]Article, 0)
-	for rows.Next() {
-		var article Article
-		if err := rows.Scan(
-			&article.BaseModel.ID,
-			&article.CategoryID,
-			&article.Title,
-			&article.BaseModel.CreatedAt,
-			&article.BaseModel.UpdatedAt,
-			&article.Category.ID,
-			&article.Category.Name,
-			&article.Category.CreatedAt,
-			&article.Category.UpdatedAt,
-		); err != nil {
-			log.Warn("failed to scan article", zap.Error(err))
-			continue
+func CreateArticle(ctx context.Context, client *ent.Client) func(CreateArticleInput) (*ent.Article, error) {
+	return func(createArticleInput CreateArticleInput) (*ent.Article, error) {
+		article, err := client.Article.
+			Create().
+			SetCategoryID(createArticleInput.CategoryID).
+			SetTitle(createArticleInput.Title).
+			SetContent(createArticleInput.Content).
+			SetStatus(int8(createArticleInput.Status)).
+			Save(ctx)
+		if err != nil {
+			log.Warn("failing create article", zap.Error(err))
+			return nil, errors.Wrapf(err, "failing create article")
 		}
-		articles = append(articles, article)
+		return article, nil
 	}
+}
 
-	return articles, nil
+func DeleteArticle(ctx context.Context, client *ent.Client) func(articleID int) error {
+	return func(articleID int) error {
+		err := client.Article.DeleteOneID(articleID).Exec(ctx)
+		if err != nil {
+			log.Warn("failing delete article", zap.Int("articleID", articleID), zap.Error(err))
+			return errors.Wrapf(err, "failing deleting article[%d]", articleID)
+		}
+		return nil
+	}
+}
+
+type UpdateArticleInput struct {
+	ID         int
+	CategoryID int
+	Title      string
+	Content    string
+	Status     ArticleStatus
+}
+
+func UpdateArticle(ctx context.Context, client *ent.Client) func(UpdateArticleInput) (*ent.Article, error) {
+	return func(updateArticleInput UpdateArticleInput) (*ent.Article, error) {
+		articleClient := client.Article.UpdateOneID(updateArticleInput.ID)
+		if updateArticleInput.Title != "" {
+			articleClient.SetTitle(updateArticleInput.Title)
+		}
+		if updateArticleInput.Content != "" {
+			articleClient.SetContent(updateArticleInput.Content)
+		}
+		if updateArticleInput.CategoryID > 0 {
+			articleClient.SetCategoryID(updateArticleInput.CategoryID)
+		}
+		if updateArticleInput.Status > StatusNil {
+			articleClient.SetStatus(int8(updateArticleInput.Status))
+		}
+		a, err := articleClient.Save(ctx)
+		if err != nil {
+			return nil, errors.Wrap(err, "failing updating article")
+		}
+		return a, nil
+	}
+}
+
+func GetArticle(ctx context.Context, client *ent.Client) func(id int, status ArticleStatus) (*ent.Article, error) {
+	return func(id int, status ArticleStatus) (*ent.Article, error) {
+		query := client.Article.Query().Where(article.ID(id))
+		if status != StatusNil {
+			query = query.Where(article.Status(int8(status)))
+		}
+		a, err := query.WithCategory().Only(ctx)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failing getting the article[%d] with status [%d]", id, status)
+		}
+		return a, nil
+	}
+}
+
+func GetArticles(ctx context.Context, client *ent.Client) func(ArticleStatus, *page.Pagination) ([]*ent.Article, *page.Pagination, error) {
+	return func(status ArticleStatus, p *page.Pagination) ([]*ent.Article, *page.Pagination, error) {
+		query := client.Article.Query()
+		if status != StatusNil {
+			query.Where(article.Status(int8(status)))
+		}
+		articles, err := query.
+			Clone().
+			WithCategory().
+			Offset(p.Offset()).Limit(p.Limit()).
+			All(ctx)
+		if err != nil {
+			log.Warn("failing getting articles", zap.Int8("status", int8(status)), zap.Error(err))
+			return nil, nil, err
+		}
+		count, err := query.Clone().Count(ctx)
+		if err != nil {
+			log.Warn("failing getting count of articles", zap.Int8("status", int8(status)), zap.Error(err))
+			return nil, nil, err
+		}
+		p.Total = count
+		return articles, p, nil
+	}
 }
 
 // GetCategoryArticles 获取某个分类下某个状态的文章
-func GetCategoryArticles(categoryID uint64, status ArticleStatus, pagination Pagination) ([]Article, error) {
-	var articles []Article
-	start := (pagination.Page - 1) * pagination.PerPage
-	var err error
+func GetCategoryArticles(ctx context.Context, client *ent.Client) func(categoryID int, status ArticleStatus, p *page.Pagination) ([]*ent.Article, *page.Pagination, error) {
+	return func(categoryID int, status ArticleStatus, p *page.Pagination) ([]*ent.Article, *page.Pagination, error) {
+		category, err := GetCategory(ctx, client)(categoryID)
+		if err != nil {
+			return nil, nil, err
+		}
+		articles, err := category.QueryArticles().WithCategory().Offset(p.Offset()).Limit(p.Limit()).All(ctx)
+		if err != nil {
+			return nil, nil, errors.Wrapf(err, "failing getting articles in category[%d]", categoryID)
+		}
 
-	if status == StatusAll {
-		pgxscan.Select(
-			ctx,
-			db,
-			&articles,
-			`SELECT id, category_id, title, content, created_at, updated_at
-			FROM article
-			WHERE category_id = $1
-			ORDER BY id DESC LIMIT $2 OFFSET $3
-			`,
-			categoryID,
-			pagination.PerPage,
-			start,
-		)
-	} else {
-		pgxscan.Select(
-			ctx,
-			db,
-			&articles,
-			`SELECT id, category_id, title, content, created_at, updated_at
-			FROM article
-			WHERE category_id = $1 AND status = $2
-			ORDER BY id DESC LIMIT $3 OFFSET $4
-			`,
-			categoryID,
-			status,
-			pagination.PerPage,
-			start,
-		)
+		count, err := GetCategoryArticlesCount(ctx, client)(categoryID, status)
+		if err != nil {
+			return nil, nil, err
+		}
+		p.Total = count
+
+		return articles, p, nil
 	}
+}
 
-	if err != nil {
-		return nil, err
+func GetCategoryArticlesCount(ctx context.Context, client *ent.Client) func(categoryID int, status ArticleStatus) (int, error) {
+	return func(categoryID int, status ArticleStatus) (int, error) {
+		category, err := GetCategory(ctx, client)(categoryID)
+		if err != nil {
+			return 0, err
+		}
+		query := category.QueryArticles()
+		if status != StatusNil {
+			query = query.Where(article.Status(int8(status)))
+		}
+		count, err := query.Count(ctx)
+		if err != nil {
+			log.Warn("failing getting count of articles in category", zap.Int("categoryID", categoryID), zap.Int8("status", int8(status)))
+			return 0, err
+		}
+		log.Debug("category articles count", zap.Int("count", count))
+		return count, nil
 	}
+}
 
-	category, err := GetCategory(categoryID)
-	if err != nil {
-		return nil, err
+func ArticlesCount(ctx context.Context, client *ent.Client) func() (int, error) {
+	return func() (int, error) {
+		count, err := client.Article.Query().Count(ctx)
+		if err != nil {
+			return 0, errors.Wrap(err, "failing getting count of article")
+		}
+		return count, nil
 	}
-	for i := range articles {
-		articles[i].Category = category
-	}
-	return articles, nil
-}
-
-func getStatusArticle(articleID uint64, status ArticleStatus) (Article, error) {
-	row := db.QueryRow(
-		ctx,
-		`SELECT a.id, a.category_id, a.title, a.content, a.created_at, a.updated_at, c.id, c.name, c.created_at, c.updated_at 
-		FROM article as a
-		LEFT JOIN category as c 
-		ON a.category_id = c.id 
-		WHERE a.id = $1 AND a.status = $2`,
-		articleID,
-		status,
-	)
-
-	var article Article
-	err := row.Scan(
-		&article.BaseModel.ID,
-		&article.CategoryID,
-		&article.Title,
-		&article.Content,
-		&article.BaseModel.CreatedAt,
-		&article.BaseModel.UpdatedAt,
-		&article.Category.ID,
-		&article.Category.Name,
-		&article.Category.CreatedAt,
-		&article.Category.UpdatedAt,
-	)
-
-	return article, err
-}
-
-func GetPublishedArticle(articleID uint64) (Article, error) {
-	return getStatusArticle(articleID, StatusPublished)
-}
-
-func GetDraft(draftID uint64) (Article, error) {
-	return getStatusArticle(draftID, StatusDraft)
-}
-
-func CreateArticle(userID uint64, article Article) (Article, error) {
-	err := pgxscan.Get(
-		ctx,
-		db,
-		&article,
-		"INSERT INTO article (title, category_id, content, status) VALUES ($1, $2, $3, $4) RETURNING *",
-		&article.Title,
-		&article.CategoryID,
-		&article.Content,
-		&article.Status,
-	)
-	return article, err
-}
-
-func DeleteArticle(articleID uint64) error {
-	_, err := db.Exec(ctx, "DELETE FROM article WHERE id = $1", articleID)
-	return err
-}
-
-func UpdateArticle(article Article) (pgconn.CommandTag, error) {
-	return db.Exec(
-		ctx,
-		"UPDATE article SET category_id = $1, title = $2, content = $3 WHERE id = $4",
-		article.CategoryID,
-		article.Title,
-		article.Content,
-		article.ID,
-	)
-}
-
-func GetArticlesCount(categoryID uint64, status ArticleStatus) (uint64, error) {
-	var count uint64
-	var err error
-	switch {
-	case categoryID != 0 && status != StatusAll:
-		err = pgxscan.Get(
-			ctx,
-			db,
-			&count,
-			"SELECT COUNT(*) FROM article WHERE category_id = $1 AND status = $2",
-			categoryID,
-			status,
-		)
-	case categoryID != 0:
-		err = pgxscan.Get(
-			ctx,
-			db,
-			&count,
-			"SELECT COUNT(*) FROM article WHERE category_id = $1",
-			categoryID,
-		)
-	case status != StatusAll:
-		err = pgxscan.Get(
-			ctx,
-			db,
-			&count,
-			"SELECT COUNT(*) FROM article WHERE status = $1",
-			status,
-		)
-	default:
-		err = pgxscan.Get(
-			ctx,
-			db,
-			&count,
-			"SELECT COUNT(*) FROM article",
-		)
-	}
-	return count, err
-}
-
-// CategoryArticlesCount 返回某个分类下文章的总数
-func CategoryArticlesCount(categoryID uint64) (uint64, error) {
-	var count uint64
-	err := pgxscan.Get(
-		ctx,
-		db,
-		&count,
-		"SELECT COUNT(*) FROM article WHERE status = $1 AND category_id = $2",
-		StatusPublished,
-		categoryID,
-	)
-	return count, err
-}
-
-func PublishDraft(draftID uint64) error {
-	_, err := db.Exec(ctx, "UPDATE article SET status = $1 WHERE id = $2", StatusPublished, draftID)
-	return err
-}
-
-func DraftsCount() (uint64, error) {
-	var count uint64
-	err := pgxscan.Get(ctx, db, &count, "SELECT COUNT(*) FROM article WHERE status = $1", StatusDraft)
-	return count, err
 }

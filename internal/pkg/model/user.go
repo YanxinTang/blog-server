@@ -1,87 +1,71 @@
 package model
 
 import (
+	"context"
 	"encoding/base64"
 
-	"github.com/YanxinTang/blog-server/internal/pkg/e"
+	"github.com/YanxinTang/blog-server/ent"
+	"github.com/YanxinTang/blog-server/ent/user"
 	"github.com/YanxinTang/blog-server/internal/pkg/log"
 	"github.com/YanxinTang/blog-server/utils"
-	"github.com/georgysavva/scany/pgxscan"
+	"github.com/pkg/errors"
 	"go.uber.org/zap"
 )
 
-type User struct {
-	BaseModel
-	Username    string `json:"username" db:"username"`
-	Email       string `json:"email" db:"email"`
-	Password    string `json:"-" db:"password"`
-	Salt        string `json:"-" db:"salt"`
-	RawPassword string `json:"-" db:"-"`
-}
-
-func getUserByUsername(username string) (User, error) {
-	var user User
-	err := pgxscan.Get(
-		ctx,
-		db,
-		&user,
-		`SELECT * FROM "user" WHERE username = $1`,
-		username,
-	)
-	return user, err
-}
-
-func Authentication(username, password string) (User, error) {
-	user, err := getUserByUsername(username)
-	if err != nil {
-		log.Error(
-			"failed to get user by username",
-			zap.String("username", username),
-			zap.Error(err),
-		)
-		return user, e.ERROR_INVALID_AUTH
+func getUserByUsername(ctx context.Context, client *ent.Client) func(username string) (*ent.User, error) {
+	return func(username string) (*ent.User, error) {
+		user, err := client.User.
+			Query().
+			Where(user.Username(username)).
+			Only(ctx)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed querying user")
+		}
+		log.Info("user returned", zap.Int("userID", user.ID), zap.String("username", user.Username))
+		return user, nil
 	}
-
-	salt, err := base64.StdEncoding.DecodeString(user.Salt)
-	if err != nil {
-		log.Error(
-			"failed to decode salt",
-			zap.String("username", username),
-			zap.String("salt", user.Salt),
-			zap.Error(err),
-		)
-		return user, e.ERROR_INVALID_AUTH
-	}
-
-	if !utils.DoPasswordsMatch(user.Password, password, salt) {
-		log.Warn(
-			"password does not match",
-			zap.Uint64("userID", user.ID),
-			zap.String("user password", user.Password),
-			zap.String("request password", password),
-			zap.String("salt", user.Salt),
-			zap.Error(err),
-		)
-		return user, e.ERROR_INVALID_AUTH
-	}
-
-	return user, nil
 }
 
-func CreateUserTx(tx Executor, username, email, password string) error {
-	salt := utils.GenerateRandomSalt()
-	hashPassword := utils.HashPassword(password, salt)
-	_, err := tx.Exec(
-		ctx,
-		`INSERT INTO "user" (username, email, password, salt) VALUES ($1, $2, $3, $4)`,
-		username,
-		email,
-		hashPassword,
-		base64.StdEncoding.EncodeToString(salt),
-	)
-	return err
+func Authentication(ctx context.Context, client *ent.Client) func(username, password string) (*ent.User, error) {
+	return func(username, password string) (*ent.User, error) {
+		user, err := getUserByUsername(ctx, client)(username)
+		if err != nil {
+			log.Error(
+				"failing getting user",
+				zap.String("username", username),
+				zap.Error(err),
+			)
+			return nil, errors.Wrapf(err, "failing getting user[%s]", username)
+		}
+
+		if !utils.DoPasswordsMatch(user.Password, password, user.Salt) {
+			log.Warn(
+				"password mismatch",
+				zap.Int("userID", user.ID),
+				zap.String("user password", user.Password),
+				zap.String("request password", password),
+				zap.String("salt", base64.StdEncoding.EncodeToString(user.Salt)),
+				zap.Error(err),
+			)
+			return nil, errors.New("password mismatch")
+		}
+
+		return user, nil
+	}
 }
 
-func CreateUser(username, email, password string) error {
-	return CreateUserTx(db, username, email, password)
+func CreateUser(ctx context.Context, client *ent.Client) func(username, email, password string) (*ent.User, error) {
+	return func(username, email, password string) (*ent.User, error) {
+		salt := utils.GenerateRandomSalt()
+		hashPassword := utils.HashPassword(password, salt)
+
+		user, err := client.User.
+			Create().
+			SetUsername(username).
+			SetEmail(email).
+			SetPassword(hashPassword).
+			SetSalt(salt).
+			Save(ctx)
+		return user, err
+	}
 }

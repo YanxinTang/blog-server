@@ -3,45 +3,52 @@ package controller
 import (
 	"net/http"
 
-	"github.com/YanxinTang/blog-server/internal/pkg/model"
+	"github.com/YanxinTang/blog-server/internal/app/service"
 	"github.com/gin-gonic/gin"
 )
 
-type apiGetSettingQuery struct {
-	Key string `form:"key" binding:"required"`
-}
+type SetSettingReqBody []service.SetSettingsPair
 
-func GetSetting(c *gin.Context) {
-	var query apiGetSettingQuery
-	if err := c.BindQuery(&query); err != nil {
+func SetSettings(c *gin.Context) {
+	var setSettingReqBody SetSettingReqBody
+	if err := c.BindJSON(&setSettingReqBody); err != nil {
 		return
 	}
-	setting, err := model.GetSetting(query.Key)
+
+	settings, err := service.SetSettings(setSettingReqBody)
 	if err != nil {
 		c.Error(err)
 		return
 	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"key":   query.Key,
-		"value": setting.Value,
-	})
+	c.JSON(http.StatusOK, settings)
 }
 
-type apiSetSettingBody struct {
-	Key   string `json:"key" binding:"required"`
-	Value string `json:"value" binding:"required"`
+type GetSettingReqQuery struct {
+	Keys []string `form:"keys[]" binding:"required"`
 }
 
-func SetSetting(c *gin.Context) {
-	var apiSetSetting apiSetSettingBody
-	if err := c.Bind(&apiSetSetting); err != nil {
+func PublicGetSettings(c *gin.Context) {
+	var query GetSettingReqQuery
+	if err := c.BindQuery(&query); err != nil {
 		return
 	}
-
-	if err := model.SetSetting(apiSetSetting.Key, apiSetSetting.Value); err != nil {
+	setting, err := service.GetPublicSettings(query.Keys)
+	if err != nil {
 		c.Error(err)
 		return
 	}
-	c.Status(http.StatusOK)
+	c.JSON(http.StatusOK, setting)
+}
+
+func GetSettings(c *gin.Context) {
+	var query GetSettingReqQuery
+	if err := c.BindQuery(&query); err != nil {
+		return
+	}
+	setting, err := service.GetSettings(query.Keys)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+	c.JSON(http.StatusOK, setting)
 }

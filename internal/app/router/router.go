@@ -3,14 +3,14 @@ package router
 import (
 	"encoding/gob"
 
+	"github.com/YanxinTang/blog-server/ent"
 	"github.com/YanxinTang/blog-server/internal/app/controller"
 	"github.com/YanxinTang/blog-server/internal/app/middleware"
-	"github.com/YanxinTang/blog-server/internal/pkg/model"
 	"github.com/gin-gonic/gin"
 )
 
 func init() {
-	gob.Register(&model.User{})
+	gob.Register(ent.User{})
 }
 
 func SetupRouter(server *gin.Engine) {
@@ -22,17 +22,16 @@ func SetupRouter(server *gin.Engine) {
 		public.POST("signout", controller.Signout)
 		public.GET("login/session", controller.GetLoginSession)
 
-		public.GET("articles", controller.GetArticles)
-		public.GET("articles/:articleID", controller.GetArticle)
+		public.GET("articles", controller.PublicGetArticles)
+		public.GET("articles/:articleID", controller.PublicGetArticle)
 		public.GET("articles/:articleID/comments", controller.GetArticleComments)
 		public.POST("articles/:articleID/comments", controller.CreateComment)
 		public.GET("categories", controller.GetCategories)
-		public.GET("categories/:categoryID/articles", controller.GetCategoryArticles)
-
-		public.GET("setting", controller.GetSetting)
+		public.GET("categories/:categoryID/articles", controller.PublicGetCategoryArticles)
 
 		public.GET("storages/:storageID/:key", controller.GetStorageObject)
 
+		public.GET("settings", controller.PublicGetSettings)
 		public.GET("captcha", controller.GetCapacha)
 	}
 
@@ -42,24 +41,17 @@ func SetupRouter(server *gin.Engine) {
 		protected.GET("overview/storage", controller.OverviewStorage)
 
 		// 分类
-		protected.POST("/categories", controller.CareteCategory)
-		protected.PUT("/categories/:categoryID", controller.UpdateCategory)
-		protected.DELETE("/categories/:categoryID", controller.DeleteCategory)
+		protected.POST("categories", controller.CareteCategory)
+		protected.PUT("categories/:categoryID", controller.UpdateCategory)
+		protected.DELETE("categories/:categoryID", controller.DeleteCategory)
 
 		// 文章
-		protected.GET("articles", controller.ProtectedGetArticles)
+		protected.GET("articles", controller.GetArticles)
+		protected.GET("articles/:articleID", controller.GetArticle)
 		protected.POST("articles", controller.CreateArticle)
-		protected.DELETE("/articles/:articleID", controller.DeleteArticle)
-		protected.PUT("/articles/:articleID", controller.UpdateArticle)
-		protected.DELETE("/articles/:articleID/comment/:commentID", controller.DeleteComment)
-
-		// 草稿
-		protected.GET("drafts", controller.GetDrafts)
-		protected.POST("drafts", controller.CreateDraft)
-		protected.POST("drafts/:draftID", controller.PublishDraft)
-		protected.GET("drafts/:draftID", controller.GetDraft)
-		protected.PUT("drafts/:draftID", controller.UpdateDraft)
-		protected.DELETE("drafts/:draftID", controller.DeleteDraft)
+		protected.DELETE("articles/:articleID", controller.DeleteArticle)
+		protected.PUT("articles/:articleID", controller.UpdateArticle)
+		protected.DELETE("articles/:articleID/comment/:commentID", controller.DeleteComment)
 
 		// 存储
 		protected.GET("storages", controller.GetStorages)
@@ -72,6 +64,7 @@ func SetupRouter(server *gin.Engine) {
 		protected.PUT("storages/:storageID/upload", controller.PutStorageObject)
 
 		// 工具接口
-		protected.POST("setting", controller.SetSetting)
+		protected.GET("settings", controller.GetSettings)
+		protected.POST("settings", controller.SetSettings)
 	}
 }
