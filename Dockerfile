@@ -7,6 +7,8 @@ ENV PORT=8000
 ENV GOPROXY=https://goproxy.io,direct
 ENV CGO_ENABLED=0
 
+RUN apk add --no-cache git
+
 WORKDIR /app
 
 COPY . .
