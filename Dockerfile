@@ -12,6 +12,7 @@ RUN apk add --no-cache git
 WORKDIR /app
 
 COPY . .
+RUN go get -d -v
 
 # Build the binary.
 RUN go build -ldflags="-w -s" -o /go/bin/server
