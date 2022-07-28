@@ -12,7 +12,8 @@ RUN apk add --no-cache git
 WORKDIR /app
 
 COPY . .
-RUN go get -d -v
+RUN go get -d entgo.io/ent/cmd/ent
+RUN go generate ./ent
 
 # Build the binary.
 RUN go build -ldflags="-w -s" -o /go/bin/server
