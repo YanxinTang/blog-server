@@ -16,7 +16,7 @@ import (
 )
 
 type CreateCommentReqBody struct {
-	// VerifyCaptchaReqBody
+	VerifyCaptchaReqBody
 	Username string `json:"username"`
 	Content  string `json:"content" binding:"required"`
 }
@@ -32,10 +32,10 @@ func CreateComment(c *gin.Context) {
 		return
 	}
 
-	// if err := service.VerifyCaptcha(createCommentReqBody.Key, createCommentReqBody.Text); err != nil {
-	// 	c.Error(err)
-	// 	return
-	// }
+	if err := service.VerifyCaptcha(createCommentReqBody.Key, createCommentReqBody.Text); err != nil {
+		c.Error(err)
+		return
+	}
 
 	cci := model.CreateCommentInput{
 		ArticleID: articleID,
